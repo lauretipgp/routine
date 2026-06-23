@@ -599,7 +599,6 @@ function updateProgress() {
 
 // ─── GRIST REST API ──────────────────────────────────────────────────────────
 // Le Custom Widget communique avec Grist via l'API REST HTTP.
-// grist.docApi n'existe pas dans les widgets — on utilise fetch() sur l'API REST.
 
 // ─── CONFIGURATION GRIST ────────────────────────────────────────────────────
 const GRIST_API_URL = 'https://grist.incubateur.anct.gouv.fr';
@@ -608,9 +607,15 @@ const GRIST_API_KEY = '9eRzRjZ1stAiE6HzxXvsLQ';  // ← remplacer avant d'encode
 
 grist.ready({ requiredAccess: 'full' });
 
+// Lire le paramètre ?operateur=NOM depuis l'URL
+(function() {
+  const p = new URLSearchParams(window.location.search);
+  if (p.get('operateur')) document.getElementById('operateur').value = p.get('operateur');
+})();
+
 async function gristPost(table, records) {
   if (!GRIST_API_URL || !GRIST_DOC_ID) {
-    throw new Error('URL ou DocID Grist non configuré. Ajouter ?apiurl=...&docid=...&apikey=... à l\'URL du widget.');
+    throw new Error('URL ou DocID Grist non configuré.');
   }
   // Convertir le tableau d'objets en format columnar Grist
   const cols = Object.keys(records[0]);
@@ -715,3 +720,12 @@ CHECKLIST.forEach((_, si) => updateSectionBadge(si));
 </script>
 </body>
 </html>
+
+
+
+
+
+
+
+
+
