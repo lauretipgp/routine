@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Routine OVPF</title>
+<script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+<style>
+  :root {
+    --bg:       #0d1b2a;
+    --surface:  #112236;
+    --card:     #162a40;
+    --border:   #1e3a54;
+    --accent:   #e8a020;
+    --ok:       #2ecc71;
+    --nok:      #e74c3c;
+    --mayotte:  #7b68ee;
+    --text:     #d4e5f7;
+    --muted:    #6a8fad;
+    --radius:   6px;
+    --font:     'Segoe UI', system-ui, sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 14px;
+    min-height: 100vh;
+  }
+
+  /* ── HEADER ── */
+  header {
+    background: var(--surface);
+    border-bottom: 2px solid var(--accent);
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .header-left { display: flex; align-items: center; gap: 14px; }
+  .logo {
+    width: 36px; height: 36px;
+    background: var(--accent);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 13px; color: #000; letter-spacing: -0.5px;
+    flex-shrink: 0;
+  }
+  .header-title { font-size: 15px; font-weight: 700; color: var(--text); }
+  .header-sub   { font-size: 11px; color: var(--muted); margin-top: 1px; }
+
+  /* ── META BAR ── */
+  .meta-bar {
+    background: var(--surface);
+    padding: 10px 20px;
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    border-bottom: 1px solid var(--border);
+  }
+  .meta-field { display: flex; align-items: center; gap: 8px; }
+  .meta-field label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; white-space: nowrap; }
+  .meta-field input, .meta-field select {
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: var(--radius);
+    padding: 4px 8px;
+    font-size: 13px;
+    font-family: var(--font);
+  }
+  .meta-field input:focus, .meta-field select:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+
+  /* ── PROGRESS ── */
+  .progress-bar-wrap {
+    background: var(--surface);
+    padding: 8px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .progress-track {
+    flex: 1;
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--ok), #27ae60);
+    border-radius: 3px;
+    transition: width .3s ease;
+    width: 0%;
+  }
+  .progress-label { font-size: 12px; color: var(--muted); white-space: nowrap; }
+  #nok-count {
+    font-size: 12px;
+    color: var(--nok);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  /* ── MAIN ── */
+  main { padding: 16px 20px 100px; max-width: 900px; margin: 0 auto; }
+
+  /* ── SECTION ── */
+  .section { margin-bottom: 12px; border-radius: var(--radius); overflow: hidden; border: 1px solid var(--border); }
+  .section-header {
+    background: var(--card);
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    user-select: none;
+  }
+  .section-header:hover { background: #1a3350; }
+  .section-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: .6px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-badge {
+    font-size: 10px;
+    background: var(--border);
+    color: var(--muted);
+    border-radius: 10px;
+    padding: 1px 7px;
+    font-weight: 600;
+  }
+  .section-badge.has-nok { background: #3d1515; color: var(--nok); }
+  .section-chevron { color: var(--muted); font-size: 11px; transition: transform .2s; }
+  .section.collapsed .section-chevron { transform: rotate(-90deg); }
+  .section-body { display: block; }
+  .section.collapsed .section-body { display: none; }
+
+  /* ── ITEM ROW ── */
+  .item-row {
+    display: grid;
+    grid-template-columns: 40px 1fr auto auto;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 14px;
+    border-top: 1px solid var(--border);
+    transition: background .15s;
+  }
+  .item-row:hover { background: rgba(255,255,255,.03); }
+  .item-row.is-nok { background: rgba(231,76,60,.06); }
+  .item-row.is-ok  { background: rgba(46,204,113,.04); }
+
+  /* Toggle */
+  .toggle-wrap { display: flex; align-items: center; justify-content: center; }
+  .toggle {
+    position: relative;
+    width: 36px; height: 20px;
+    flex-shrink: 0;
+  }
+  .toggle input { opacity: 0; width: 0; height: 0; }
+  .toggle-slider {
+    position: absolute; inset: 0;
+    background: var(--nok);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background .2s;
+  }
+  .toggle-slider::before {
+    content: '';
+    position: absolute;
+    width: 14px; height: 14px;
+    left: 3px; top: 3px;
+    background: #fff;
+    border-radius: 50%;
+    transition: transform .2s;
+  }
+  .toggle input:checked + .toggle-slider { background: var(--ok); }
+  .toggle input:checked + .toggle-slider::before { transform: translateX(16px); }
+
+  /* Label + remarque */
+  .item-content { min-width: 0; }
+  .item-label {
+    font-size: 13px;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .item-label .badge-mayotte {
+    display: inline-block;
+    font-size: 9px;
+    background: rgba(123,104,238,.2);
+    color: var(--mayotte);
+    border-radius: 3px;
+    padding: 0 5px;
+    margin-left: 6px;
+    vertical-align: middle;
+    font-weight: 700;
+    letter-spacing: .3px;
+  }
+  .item-remarque {
+    margin-top: 3px;
+    width: 100%;
+    background: transparent;
+    border: none;
+    border-bottom: 1px dashed var(--border);
+    color: var(--muted);
+    font-size: 12px;
+    font-family: var(--font);
+    padding: 2px 0;
+    outline: none;
+    transition: border-color .2s;
+  }
+  .item-remarque:focus { border-bottom-color: var(--accent); color: var(--text); }
+  .item-remarque::placeholder { color: #3a5570; }
+
+  /* Réseau badge */
+  .item-reseau {
+    font-size: 10px;
+    color: var(--muted);
+    background: var(--border);
+    padding: 1px 6px;
+    border-radius: 3px;
+    white-space: nowrap;
+    font-weight: 600;
+  }
+
+  /* Lien vérification */
+  .item-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px; height: 28px;
+    border-radius: var(--radius);
+    background: var(--border);
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 13px;
+    transition: background .15s, color .15s;
+    flex-shrink: 0;
+  }
+  .item-link:hover { background: var(--accent); color: #000; }
+  .item-link.no-link { pointer-events: none; opacity: .2; }
+
+  /* ── FOOTER / SUBMIT ── */
+  .footer-bar {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: var(--surface);
+    border-top: 2px solid var(--accent);
+    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    z-index: 100;
+  }
+  .footer-stats { font-size: 12px; color: var(--muted); }
+  .footer-stats strong { color: var(--text); }
+
+  .btn-submit {
+    background: var(--accent);
+    color: #000;
+    border: none;
+    border-radius: var(--radius);
+    padding: 9px 22px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity .2s;
+    font-family: var(--font);
+  }
+  .btn-submit:hover { opacity: .85; }
+  .btn-submit:disabled { opacity: .4; cursor: not-allowed; }
+
+  /* ── TOAST ── */
+  #toast {
+    position: fixed;
+    top: 70px; right: 20px;
+    background: var(--ok);
+    color: #000;
+    padding: 10px 18px;
+    border-radius: var(--radius);
+    font-weight: 700;
+    font-size: 13px;
+    opacity: 0;
+    transform: translateY(-8px);
+    transition: opacity .3s, transform .3s;
+    pointer-events: none;
+    z-index: 200;
+  }
+  #toast.show { opacity: 1; transform: translateY(0); }
+  #toast.error { background: var(--nok); color: #fff; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <div class="logo">OVPF</div>
+    <div>
+      <div class="header-title">Fiche de Routine</div>
+      <div class="header-sub">Observatoire Volcanologique du Piton de la Fournaise</div>
+    </div>
+  </div>
+  <div style="font-size:11px;color:var(--muted);text-align:right" id="header-date"></div>
+</header>
+
+<div class="meta-bar">
+  <div class="meta-field">
+    <label>Opérateur</label>
+    <input type="text" id="operateur" placeholder="Nom…" style="width:140px">
+  </div>
+  <div class="meta-field">
+    <label>Date</label>
+    <input type="date" id="date-routine">
+  </div>
+  <div class="meta-field">
+    <label>Heure début</label>
+    <input type="time" id="heure-routine">
+  </div>
+</div>
+
+<div class="progress-bar-wrap">
+  <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+  <div class="progress-label" id="progress-label">0 / 68 vérifiés</div>
+  <div id="nok-count"></div>
+</div>
+
+<main id="main"></main>
+
+<div class="footer-bar">
+  <div class="footer-stats" id="footer-stats">—</div>
+  <button class="btn-submit" id="btn-submit" onclick="submitRoutine()">Soumettre la fiche →</button>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ─── DONNÉES CHECKLIST ──────────────────────────────────────────────────────
+const yesterday = () => {
+  const d = new Date(); d.setDate(d.getDate() - 1);
+  const dd = String(d.getDate()).padStart(2,'0');
+  const mm = String(d.getMonth()+1).padStart(2,'0');
+  const yyyy = d.getFullYear();
+  return `${dd}-${mm}-${yyyy}`;
+};
+
+const DYNAMIC_URLS = {
+  'Qualité des données sismiques':
+    () => `https://webobs.ovpf.ipgp.fr/php/qc/index_qc4.php?qc_category=RSAM&station=ALL&date=${yesterday()}`,
+  'Composantes continues sismo analogiques':
+    () => `https://webobs.ovpf.ipgp.fr/php/qc/index_qc4.php?qc_category=ValeursMoyennes&station=ALL&date=${yesterday()}`,
+};
+
+const CHECKLIST = [
+  { cat: "Sefran et bulletin", items: [
+    { label: "Dépouillement Sefran PF et envoi du bulletin", reseau: "PF", url: "https://webobs.ovpf.ipgp.fr/cgi-bin/sefran3.pl?header=1" },
+    { label: "Dépouillement Sefran Mayotte et envoi du bulletin", reseau: "Mayotte", url: "https://webobs.ovpf.ipgp.fr/php/sgram-revosima/SGRAM_LF2/index.html" },
+    { label: "Liste d'appel", reseau: "PF", url: "http://195.83.188.10:6001/" },
+  ]},
+  { cat: "Alarme anti-intrusion", items: [
+    { label: "État alarme anti-intrusion", reseau: "PF", url: "http://195.83.188.219/keypad.cgi" },
+  ]},
+  { cat: "Caméras", items: [
+    { label: "CratèreBory (CBOC)", reseau: "PF", url: "https://webobs.ovpf.ipgp.fr/php/cameras/camera.php?camera=Bory&format=axis" },
+    { label: "Piton des Basaltes (BASC)", reseau: "PF", url: "https://webobs.ovpf.ipgp.fr/php/cameras/camera.php?camera=Basalte&format=axis" },
+    { label: "Cratère Fontaine (CFNC)", reseau: "PF", url: "https://webobs.ovpf.ipgp.fr/php/cameras/camera.php?camera=CFNC&format=axis" },
+    { label: "Piton de Partage (PARC)", reseau: "PF", url: "https://webobs.ovpf.ipgp.fr/php/cameras/camera.php?camera=PARC&format=axis" },
+    { label: "Enclos (ENCC)", reseau: "PF", url: "https://webobs.ovpf.ipgp.fr/php/cameras/camera.php?camera=ENCC&format=axis" },
+    { label: "Piton de Bert (BERC)", reseau: "PF", url: "https://webobs.ovpf.ipgp.fr/php/cameras/camera.php?camera=Bert&format=axis" },
+    { label: "Piton des Cascades (CASC)", reseau: "PF", url: "https://webobs.ovpf.ipgp.fr/php/cameras/camera.php?camera=Cascades&format=axis" },
+    { label: "Piton de Bert IRT (BERT1)", reseau: "PF", url: "https://webobs.ovpf.ipgp.fr/php/cameras/camera.php?camera=BERT1&format=axis" },
+    { label: "Piton de Bert IRT (BERT2)", reseau: "PF", url: "https://webobs.ovpf.ipgp.fr/php/cameras/camera.php?camera=BERT2&format=axis" },
+    { label: "Piton de Bert IRT (BERT3)", reseau: "PF", url: "https://webobs.ovpf.ipgp.fr/php/cameras/camera.php?camera=BERT3&format=axis" },
+    { label: "Piton de Bert IRT (BERT4)", reseau: "PF", url: "https://webobs.ovpf.ipgp.fr/php/cameras/camera.php?camera=BERT4&format=axis" },
+    { label: "Cratère Dolomieu Est (DOEC)", reseau: "PF", url: "https://webobs.ovpf.ipgp.fr/php/cameras/camera.php?camera=DOEC&format=axis" },
+    { label: "Hubert Delisle (HDLC)", reseau: "PF", url: "https://webobs.ovpf.ipgp.fr/php/cameras/camera.php?camera=HDLC1&format=axis" },
+    { label: "Caméras à l'heure (synchro)", reseau: "PF", url: "https://www.ipgp.fr/volcanoweb/reunion/html_static_webcam/cameras-ovpf.html" },
+  ]},
+  { cat: "Alarme sismique RSAM", items: [
+    { label: "BOR.EHZ — seuil 0.8", reseau: "PF", url: "https://webobs.ovpf.ipgp.fr/php/images/sismo/RSAM2/BOR_1440.png" },
+    { label: "CSS.HHZ — seuil 0.8", reseau: "PF", url: "https://webobs.ovpf.ipgp.fr/php/images/sismo/RSAM2/CSS_1440.png" },
+    { label: "FJS.HHZ — seuil 0.8", reseau: "PF", url: "https://webobs.ovpf.ipgp.fr/php/images/sismo/RSAM2/FJS_1440.png" },
+    { label: "CRA.HHZ — seuil 0.8", reseau: "PF", url: "https://webobs.ovpf.ipgp.fr/php/images/sismo/RSAM2/CRA_1440.png" },
+    { label: "FOR.HHZ — seuil 0.8", reseau: "PF", url: "https://webobs.ovpf.ipgp.fr/php/images/sismo/RSAM2/FOR_1440.png" },
+    { label: "GPS.HHZ — seuil 0.8", reseau: "PF", url: "https://webobs.ovpf.ipgp.fr/php/images/sismo/RSAM2/GPS_1440.png" },
+    { label: "HIM.HHZ — seuil 0.8", reseau: "PF", url: "https://webobs.ovpf.ipgp.fr/php/images/sismo/RSAM2/HIM_1440.png" },
+    { label: "BLE.EHZ — seuil 0.8", reseau: "PF", url: "https://webobs.ovpf.ipgp.fr/php/images/sismo/RSAM2/BLE_1440.png" },
+    { label: "HDL.HHZ — seuil 0.8", reseau: "PF", url: "https://webobs.ovpf.ipgp.fr/php/images/sismo/RSAM2/HDL_1440.png" },
+    { label: "DSO.HHZ — seuil 0.8", reseau: "PF", url: "https://webobs.ovpf.ipgp.fr/php/images/sismo/RSAM2/DSO_1440.png" },
+    { label: "RVA.HHZ — seuil 0.8", reseau: "PF", url: "https://webobs.ovpf.ipgp.fr/php/images/sismo/RSAM2/RVA_1440.png" },
+    { label: "PVD.HHZ — seuil 0.8", reseau: "PF", url: "https://webobs.ovpf.ipgp.fr/php/images/sismo/RSAM2/PVD_1440.png" },
+    { label: "PRA.HHZ — seuil 0.8", reseau: "PF", url: "https://webobs.ovpf.ipgp.fr/php/images/sismo/RSAM2/PRA_1440.png" },
+    { label: "TKR.EHZ — seuil 0.8", reseau: "PF", url: "https://webobs.ovpf.ipgp.fr/php/images/sismo/RSAM2/TKR_1440.png" },
+  ]},
+  { cat: "Alarme sismique EW Songe", items: [
+    { label: "Test de l'alarme EW Songe", reseau: "PF", url: "https://webobs.ovpf.ipgp.fr/php/alarme/index.php?ovpf=1" },
+  ]},
+  { cat: "Graphes", items: [
+    { label: "SefraN à jour", reseau: "PF", url: "https://webobs.ovpf.ipgp.fr/cgi-bin/sefran3.pl?header=1" },
+    { label: "Graphes RSAM à jour", reseau: "PF", url: "https://webobs.ovpf.ipgp.fr/php/sismo/affich_rsam_rt_sorted.php?duration=120" },
+    { label: "Jerk RER à jour", reseau: "PF", url: "https://webobs.ovpf.ipgp.fr/cgi-bin/showOUTG.pl?grid=PROC.JERKRER&ts=05d&g=rsbrer0" },
+    { label: "CovSeisNet temps réel", reseau: "PF", url: "https://webobs.ovpf.ipgp.fr/php/sismo/covseisnet/CovSeisNet.html" },
+    { label: "RSAM source map", reseau: "PF", url: "https://webobs.ovpf.ipgp.fr/cgi-bin/showOUTG.pl?grid=PROC.RSAM_PF&refresh=3600&header=&ts=01h&g=SOURCEMAP" },
+    { label: "Graphes NOVAC à jour", reseau: "PF", url: "https://webobs.ovpf.ipgp.fr/cgi-bin/showOUTG.pl?grid=PROC.NOVACPF&refresh=3600&header=&ts=01w&g=col" },
+    { label: "Graphes CO2 à jour", reseau: "PF", url: "https://webobs.ovpf.ipgp.fr/cgi-bin/showOUTG.pl?grid=PROC.GEOCHEM_CODEUX&refresh=3600&header=&ts=01w&g=col" },
+    { label: "Graphes Multigaz à jour", reseau: "PF", url: "https://webobs.ovpf.ipgp.fr/php/geochimie/multigas.php?days=7j" },
+    { label: "Graphes UDMN à jour", reseau: "PF", url: "https://webobs.ovpf.ipgp.fr/cgi-bin/showOUTG.pl?grid=PROC.GEOCHEM_CODEUX_REVOSIMA&refresh=3600&header=&ts=01w&g=macsudmn" },
+  ]},
+  { cat: "GNSS", items: [
+    { label: "Cartes GNSS GIPSY à jour", reseau: "PF", url: "https://webobs.ovpf.ipgp.fr/cgi-bin/showOUTG.pl?grid=PROC.GIPSYX&ts=60d&g=MODELLING_pCDM" },
+    { label: "Status GIPSY (sauf GBNG)", reseau: "PF", url: "https://webobs.ovpf.ipgp.fr/cgi-bin/showOUTG.pl?grid=PROC.GIPSYXREVOSIMA&refresh=3600&header=&ts=03m&g=SUMMARY" },
+    { label: "Graphes GNSS GipsyX Mayotte à jour", reseau: "Mayotte", url: "https://webobs.ovpf.ipgp.fr/cgi-bin/showOUTG.pl?grid=PROC.GIPSYXREVOSIMA&refresh=3600&header=&ts=03m&g=SUMMARY" },
+    { label: "Status GipsyX Mayotte", reseau: "Mayotte", url: "https://webobs.ovpf.ipgp.fr/cgi-bin/showGRID.pl?grid=PROC.GIPSYXREVOSIMA#SPECS" },
+  ]},
+  { cat: "Déformation", items: [
+    { label: "Graphes inclinomètres à jour", reseau: "PF", url: "https://webobs.ovpf.ipgp.fr/php/inclino/vecteurs.php" },
+    { label: "Graphes extensomètres à jour", reseau: "PF", url: "https://webobs.ovpf.ipgp.fr/cgi-bin/showOUTG.pl?grid=PROC.EXTENSO&refresh=3600&header=&ts=02w&g=col" },
+  ]},
+  { cat: "Météo / Pluvio", items: [
+    { label: "Graphes pluviomètres à jour", reseau: "PF", url: "https://webobs.ovpf.ipgp.fr/cgi-bin/showOUTG.pl?grid=PROC.PLUVIO&refresh=3600&header=&ts=07d&g=col" },
+    { label: "Pluvio GPNW", reseau: "PF", url: "https://webobs.ovpf.ipgp.fr/cgi-bin/showOUTG.pl?grid=PROC.PLUVIO_GPNW&refresh=3600&header=&ts=07d&g=col" },
+    { label: "Météo CFNW", reseau: "PF", url: "https://webobs.ovpf.ipgp.fr/cgi-bin/showOUTG.pl?grid=PROC.MTO_OVPF&refresh=3600&header=&ts=07d&g=rmmcfnw" },
+  ]},
+  { cat: "Sismique qualité", items: [
+    { label: "Qualité des données sismiques", reseau: "PF", url: "DYNAMIC" },
+    { label: "Composantes continues sismo analogiques", reseau: "PF", url: "DYNAMIC" },
+  ]},
+  { cat: "Réseau général", items: [
+    { label: "Réseau informatique", reseau: "PF", url: "http://172.16.100.17/nagios/cgi-bin/status.cgi?hostgroup=routine&style=hostdetail" },
+    { label: "Programmes d'acquisition", reseau: "PF", url: "http://172.16.100.17/nagios/cgi-bin/status.cgi?servicegroup=acquisitions&style=detail" },
+    { label: "Acquisition radex version 8.2.2", reseau: "PF", url: "" },
+  ]},
+  { cat: "Onduleur", items: [
+    { label: "Taux de charge utilisation (%)", reseau: "PF", url: "http://195.83.188.242/" },
+    { label: "Capacité batterie (%)", reseau: "PF", url: "http://195.83.188.242/" },
+  ]},
+  { cat: "Groupe électrogène", items: [
+    { label: "Mode de fonctionnement", reseau: "PF", url: "http://10.10.1.252/cgi-bin/testL3B.py" },
+    { label: "Mesure batterie (V)", reseau: "PF", url: "http://10.10.1.252/cgi-bin/testL3B.py" },
+    { label: "Réserve cuve interne gasoil (%)", reseau: "PF", url: "http://10.10.1.252/cgi-bin/testL3B.py" },
+    { label: "Compteur horaire total", reseau: "PF", url: "http://10.10.1.252/cgi-bin/testL3B.py" },
+    { label: "Lecture vumètre grande cuve gasoil (litres)", reseau: "PF", url: "http://10.10.1.252/cgi-bin/testL3B.py" },
+  ]},
+  { cat: "Divers", items: [
+    { label: "Compléter le registre d'astreinte", reseau: "PF", url: "" },
+    { label: "Défibrillateur (début de semaine)", reseau: "PF", url: "" },
+    { label: "Renvoi GSM Astreinte", reseau: "PF", url: "" },
+    { label: "Bulletin OVPF à Paris", reseau: "PF", url: "https://www.ipgp.fr/volcanoweb/reunion/Bulletin_quotidien/bulletin.html" },
+    { label: "Bulletin Revosima à Paris", reseau: "Mayotte", url: "https://www.ipgp.fr/volcanoweb/mayotte/Bulletin_quotidien/bulletin.html" },
+  ]},
+];
+
+// ─── STATE ──────────────────────────────────────────────────────────────────
+const state = {}; // key: "catIdx-itemIdx" → { ok: bool, remarque: str }
+let totalItems = 0;
+CHECKLIST.forEach((s, si) => s.items.forEach((it, ii) => {
+  state[`${si}-${ii}`] = { ok: false, remarque: '', label: it.label, cat: s.cat, reseau: it.reseau };
+  totalItems++;
+}));
+
+// ─── INIT META ───────────────────────────────────────────────────────────────
+function initMeta() {
+  const now = new Date();
+  document.getElementById('header-date').textContent =
+    now.toLocaleDateString('fr-FR', { weekday:'long', day:'2-digit', month:'long', year:'numeric' });
+
+  const d = document.getElementById('date-routine');
+  d.value = now.toISOString().slice(0,10);
+
+  const h = document.getElementById('heure-routine');
+  h.value = now.toTimeString().slice(0,5);
+
+  // Préremplir opérateur depuis URL param
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('operateur')) document.getElementById('operateur').value = params.get('operateur');
+}
+
+// ─── BUILD UI ────────────────────────────────────────────────────────────────
+function buildUI() {
+  const main = document.getElementById('main');
+  main.innerHTML = '';
+
+  CHECKLIST.forEach((section, si) => {
+    const sec = document.createElement('div');
+    sec.className = 'section';
+    sec.dataset.si = si;
+
+    const hdr = document.createElement('div');
+    hdr.className = 'section-header';
+    hdr.innerHTML = `
+      <div class="section-title">
+        ${section.cat}
+        <span class="section-badge" id="badge-${si}">${section.items.length} items</span>
+      </div>
+      <span class="section-chevron">▼</span>`;
+    hdr.onclick = () => sec.classList.toggle('collapsed');
+
+    const body = document.createElement('div');
+    body.className = 'section-body';
+
+    section.items.forEach((item, ii) => {
+      const key = `${si}-${ii}`;
+      const resolvedUrl = item.url === 'DYNAMIC'
+        ? DYNAMIC_URLS[item.label]()
+        : item.url;
+
+      const row = document.createElement('div');
+      row.className = 'item-row';
+      row.id = `row-${key}`;
+
+      row.innerHTML = `
+        <div class="toggle-wrap">
+          <label class="toggle">
+            <input type="checkbox" id="chk-${key}">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div class="item-content">
+          <div class="item-label">
+            ${item.label}
+            ${item.reseau === 'Mayotte' ? '<span class="badge-mayotte">MAYOTTE</span>' : ''}
+          </div>
+          <input class="item-remarque" type="text" placeholder="Remarque…" id="rem-${key}">
+        </div>
+        <span class="item-reseau">${item.reseau}</span>
+        <a class="item-link${resolvedUrl ? '' : ' no-link'}"
+           href="${resolvedUrl || '#'}"
+           target="_blank"
+           title="${resolvedUrl ? 'Ouvrir la vérification' : 'Pas de lien'}"
+        >↗</a>`;
+
+      // Events
+      row.querySelector(`#chk-${key}`).addEventListener('change', (e) => {
+        state[key].ok = e.target.checked;
+        updateRow(key);
+        updateProgress();
+        updateSectionBadge(si);
+      });
+      row.querySelector(`#rem-${key}`).addEventListener('input', (e) => {
+        state[key].remarque = e.target.value;
+      });
+
+      body.appendChild(row);
+    });
+
+    sec.appendChild(hdr);
+    sec.appendChild(body);
+    main.appendChild(sec);
+  });
+}
+
+function updateRow(key) {
+  const row = document.getElementById(`row-${key}`);
+  const ok = state[key].ok;
+  row.classList.toggle('is-ok', ok);
+  row.classList.toggle('is-nok', !ok);
+}
+
+function updateSectionBadge(si) {
+  const section = CHECKLIST[si];
+  const nok = section.items.filter((_, ii) => !state[`${si}-${ii}`].ok).length;
+  const badge = document.getElementById(`badge-${si}`);
+  badge.textContent = nok === 0 ? '✓ OK' : `${nok} NOK`;
+  badge.className = 'section-badge' + (nok > 0 ? ' has-nok' : '');
+}
+
+function updateProgress() {
+  const okCount = Object.values(state).filter(s => s.ok).length;
+  const nokCount = totalItems - okCount;
+  const pct = Math.round(okCount / totalItems * 100);
+
+  document.getElementById('progress-fill').style.width = pct + '%';
+  document.getElementById('progress-label').textContent = `${okCount} / ${totalItems} vérifiés`;
+  document.getElementById('nok-count').textContent = nokCount > 0 ? `${nokCount} NOK` : '';
+  document.getElementById('footer-stats').innerHTML =
+    `<strong>${okCount}</strong> OK &nbsp;·&nbsp; <strong>${nokCount}</strong> NOK &nbsp;·&nbsp; ${pct}% complété`;
+}
+
+// ─── GRIST REST API ──────────────────────────────────────────────────────────
+// Le Custom Widget communique avec Grist via l'API REST HTTP.
+// grist.docApi n'existe pas dans les widgets — on utilise fetch() sur l'API REST.
+
+// ─── CONFIGURATION GRIST ────────────────────────────────────────────────────
+const GRIST_API_URL = 'https://grist.incubateur.anct.gouv.fr';
+const GRIST_DOC_ID  = '9eRzRjZ1stA';
+const GRIST_API_KEY = '9eRzRjZ1stAiE6HzxXvsLQ';  // ← remplacer avant d'encoder en base64
+
+grist.ready({ requiredAccess: 'full' });
+
+async function gristPost(table, records) {
+  if (!GRIST_API_URL || !GRIST_DOC_ID) {
+    throw new Error('URL ou DocID Grist non configuré. Ajouter ?apiurl=...&docid=...&apikey=... à l\'URL du widget.');
+  }
+  // Convertir le tableau d'objets en format columnar Grist
+  const cols = Object.keys(records[0]);
+  const fields = {};
+  cols.forEach(c => { fields[c] = records.map(r => r[c]); });
+
+  const resp = await fetch(
+    `${GRIST_API_URL}/api/docs/${GRIST_DOC_ID}/tables/${table}/records`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(GRIST_API_KEY ? { 'Authorization': `Bearer ${GRIST_API_KEY}` } : {}),
+      },
+      body: JSON.stringify({ records: records.map(r => ({ fields: r })) }),
+    }
+  );
+  if (!resp.ok) {
+    const txt = await resp.text();
+    throw new Error(`HTTP ${resp.status} : ${txt}`);
+  }
+  const data = await resp.json();
+  return data.records.map(r => r.id);
+}
+
+// ─── SUBMIT ─────────────────────────────────────────────────────────────────
+async function submitRoutine() {
+  const operateur = document.getElementById('operateur').value.trim();
+  const dateVal   = document.getElementById('date-routine').value;
+  const heureVal  = document.getElementById('heure-routine').value;
+
+  if (!operateur) { showToast('Saisir le nom de l\'opérateur', true); return; }
+  if (!dateVal)   { showToast('Saisir la date', true); return; }
+
+  const btn = document.getElementById('btn-submit');
+  btn.disabled = true;
+  btn.textContent = 'Enregistrement…';
+
+  const nokItems = Object.values(state).filter(s => !s.ok);
+  const statut = nokItems.length === 0 ? 'OK'
+    : nokItems.length <= 3 ? 'Pannes mineures'
+    : 'Pannes majeures';
+
+  const routineRecord = {
+    operateur, date_routine: dateVal, heure_routine: heureVal, statut_global: statut
+  };
+
+  const checkRecords = Object.entries(state).map(([key, s]) => ({
+    categorie: s.cat,
+    item_label: s.label,
+    reseau: s.reseau,
+    ok: s.ok,
+    remarque: s.remarque,
+  }));
+
+  try {
+    const [routineId] = await gristPost('Routines', [routineRecord]);
+    const withFK = checkRecords.map(r => ({ ...r, routine_id: routineId }));
+    await gristPost('CheckItems', withFK);
+
+    showToast(`Fiche enregistrée — ${nokItems.length} NOK`);
+    btn.textContent = '✓ Fiche soumise';
+    setTimeout(() => { btn.disabled = false; btn.textContent = 'Nouvelle fiche →'; resetForm(); }, 3000);
+
+  } catch (err) {
+    console.error(err);
+    showToast('Erreur : ' + err.message, true);
+    btn.disabled = false;
+    btn.textContent = 'Soumettre la fiche →';
+  }
+}
+
+function resetForm() {
+  Object.keys(state).forEach(key => {
+    state[key].ok = false;
+    state[key].remarque = '';
+    const chk = document.getElementById(`chk-${key}`);
+    const rem = document.getElementById(`rem-${key}`);
+    if (chk) chk.checked = false;
+    if (rem) rem.value = '';
+    updateRow(key);
+  });
+  CHECKLIST.forEach((_, si) => updateSectionBadge(si));
+  updateProgress();
+  initMeta();
+}
+
+// ─── TOAST ───────────────────────────────────────────────────────────────────
+function showToast(msg, isError = false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show' + (isError ? ' error' : '');
+  setTimeout(() => { t.className = ''; }, 3500);
+}
+
+// ─── BOOT ────────────────────────────────────────────────────────────────────
+initMeta();
+buildUI();
+Object.keys(state).forEach(key => updateRow(key));
+updateProgress();
+CHECKLIST.forEach((_, si) => updateSectionBadge(si));
+</script>
+</body>
+</html>
