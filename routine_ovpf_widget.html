@@ -603,9 +603,8 @@ function updateProgress() {
 // ─── CONFIGURATION GRIST ────────────────────────────────────────────────────
 const GRIST_API_URL = 'https://grist.incubateur.anct.gouv.fr';
 const GRIST_DOC_ID  = '9eRzRjZ1stA';
-const GRIST_API_KEY = '9eRzRjZ1stAiE6HzxXvsLQ';  // ← remplacer avant d'encoder en base64
-
-grist.ready({ requiredAccess: 'full' });
+const GRIST_API_KEY = '9eRzRjZ1stAiE6HzxXvsLQ';  // ← remplacer avant d'encoder en base64 
+  grist.ready({ requiredAccess: 'full' });
 
 // Lire le paramètre ?operateur=NOM depuis l'URL
 (function() {
@@ -622,17 +621,14 @@ async function gristPost(table, records) {
   const fields = {};
   cols.forEach(c => { fields[c] = records.map(r => r[c]); });
 
-  const resp = await fetch(
-    `${GRIST_API_URL}/api/docs/${GRIST_DOC_ID}/tables/${table}/records`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(GRIST_API_KEY ? { 'Authorization': `Bearer ${GRIST_API_KEY}` } : {}),
-      },
-      body: JSON.stringify({ records: records.map(r => ({ fields: r })) }),
-    }
-  );
+  const apiUrl = `${GRIST_API_URL}/api/docs/${GRIST_DOC_ID}/tables/${table}/records`
+    + (GRIST_API_KEY ? `?auth=${GRIST_API_KEY}` : '');
+
+  const resp = await fetch(apiUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ records: records.map(r => ({ fields: r })) }),
+  });
   if (!resp.ok) {
     const txt = await resp.text();
     throw new Error(`HTTP ${resp.status} : ${txt}`);
@@ -720,12 +716,6 @@ CHECKLIST.forEach((_, si) => updateSectionBadge(si));
 </script>
 </body>
 </html>
-
-
-
-
-
-
 
 
 
