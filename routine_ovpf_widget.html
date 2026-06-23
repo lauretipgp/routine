@@ -597,14 +597,11 @@ function updateProgress() {
     `<strong>${okCount}</strong> OK &nbsp;·&nbsp; <strong>${nokCount}</strong> NOK &nbsp;·&nbsp; ${pct}% complété`;
 }
 
-// ─── GRIST REST API ──────────────────────────────────────────────────────────
-// Le Custom Widget communique avec Grist via l'API REST HTTP.
+// ─── GRIST API (interne plugin — same-origin, pas de CORS) ─────────────────
+// On utilise grist.docApi.getAccessToken() pour obtenir un token temporaire
+// valide same-origin, puis fetch() vers baseUrl fourni par Grist lui-même.
 
-// ─── CONFIGURATION GRIST ────────────────────────────────────────────────────
-const GRIST_API_URL = 'https://grist.incubateur.anct.gouv.fr';
-const GRIST_DOC_ID  = '9eRzRjZ1stA';
-const GRIST_API_KEY = '9eRzRjZ1stAiE6HzxXvsLQ';  // ← remplacer avant d'encoder en base64 
-  grist.ready({ requiredAccess: 'full' });
+grist.ready({ requiredAccess: 'full' });
 
 // Lire le paramètre ?operateur=NOM depuis l'URL
 (function() {
@@ -613,20 +610,19 @@ const GRIST_API_KEY = '9eRzRjZ1stAiE6HzxXvsLQ';  // ← remplacer avant d'encode
 })();
 
 async function gristPost(table, records) {
-  if (!GRIST_API_URL || !GRIST_DOC_ID) {
-    throw new Error('URL ou DocID Grist non configuré.');
-  }
-  // Convertir le tableau d'objets en format columnar Grist
-  const cols = Object.keys(records[0]);
-  const fields = {};
-  cols.forEach(c => { fields[c] = records.map(r => r[c]); });
+  // Récupérer un token temporaire same-origin depuis l'API plugin Grist
+  const tokenInfo = await grist.docApi.getAccessToken({ readOnly: false });
+  // tokenInfo.baseUrl  = URL de base du document Grist (same-origin)
+  // tokenInfo.token    = token temporaire à passer en ?auth=
 
-  const apiUrl = `${GRIST_API_URL}/api/docs/${GRIST_DOC_ID}/tables/${table}/records`
-    + (GRIST_API_KEY ? `?auth=${GRIST_API_KEY}` : '');
+  const url = `${tokenInfo.baseUrl}/tables/${table}/records?auth=${tokenInfo.token}`;
 
-  const resp = await fetch(apiUrl, {
+  const resp = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Requested-With': 'XMLHttpRequest',
+    },
     body: JSON.stringify({ records: records.map(r => ({ fields: r })) }),
   });
   if (!resp.ok) {
@@ -716,6 +712,3 @@ CHECKLIST.forEach((_, si) => updateSectionBadge(si));
 </script>
 </body>
 </html>
-
-
-
