@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Routine OVPF</title>
+<script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+<style>
+:root {
+  --bg:      #0b1929;
+  --surface: #0f2236;
+  --card:    #142d45;
+  --border:  #1c3f5e;
+  --accent:  #e8a020;
+  --ok:      #27c97a;
+  --nok:     #e84545;
+  --mayotte: #a78bfa;
+  --text:    #cde0f5;
+  --muted:   #5f8aad;
+  --font:    'Segoe UI', system-ui, sans-serif;
+  --r:       8px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 14px;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+/* ── TOPBAR ── */
+.topbar {
+  background: var(--surface);
+  border-bottom: 2px solid var(--accent);
+  padding: 10px 18px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-shrink: 0;
+  z-index: 10;
+}
+.logo {
+  width: 32px; height: 32px;
+  background: var(--accent);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: 11px; color: #000;
+  flex-shrink: 0;
+}
+.topbar-meta { display: flex; gap: 10px; align-items: center; flex: 1; }
+.topbar-meta input {
+  background: var(--card);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: var(--r);
+  padding: 4px 8px;
+  font-size: 12px;
+  font-family: var(--font);
+}
+.topbar-meta input:focus { outline: none; border-color: var(--accent); }
+.topbar-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+
+/* ── PROGRESS ── */
+.progress-wrap {
+  background: var(--surface);
+  padding: 6px 18px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.progress-track {
+  flex: 1; height: 5px;
+  background: var(--border);
+  border-radius: 3px; overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--ok), #1ea860);
+  border-radius: 3px;
+  transition: width .35s ease;
+  width: 0%;
+}
+.progress-label { font-size: 12px; color: var(--muted); white-space: nowrap; }
+.progress-nok   { font-size: 12px; color: var(--nok); font-weight: 700; white-space: nowrap; }
+
+/* ── MAIN SPLIT ── */
+.split {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* ── LEFT PANEL ── */
+.left-panel {
+  width: 380px;
+  flex-shrink: 0;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  padding: 20px 18px;
+  gap: 16px;
+  overflow-y: auto;
+}
+
+.item-cat {
+  font-size: 10px;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: .8px;
+  font-weight: 700;
+}
+
+.item-label-text {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.35;
+}
+
+.badge-mayotte {
+  display: inline-block;
+  font-size: 9px;
+  background: rgba(167,139,250,.18);
+  color: var(--mayotte);
+  border-radius: 3px;
+  padding: 1px 6px;
+  margin-left: 6px;
+  font-weight: 700;
+  letter-spacing: .3px;
+  vertical-align: middle;
+}
+
+/* ── TOGGLE ── */
+.toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.toggle {
+  position: relative;
+  width: 52px; height: 28px;
+  flex-shrink: 0;
+}
+.toggle input { opacity: 0; width: 0; height: 0; }
+.toggle-slider {
+  position: absolute; inset: 0;
+  background: var(--nok);
+  border-radius: 14px;
+  cursor: pointer;
+  transition: background .2s;
+}
+.toggle-slider::before {
+  content: '';
+  position: absolute;
+  width: 20px; height: 20px;
+  left: 4px; top: 4px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform .2s;
+}
+.toggle input:checked + .toggle-slider { background: var(--ok); }
+.toggle input:checked + .toggle-slider::before { transform: translateX(24px); }
+.toggle-label {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--nok);
+  transition: color .2s;
+}
+.toggle-label.is-ok { color: var(--ok); }
+
+/* ── REMARQUE ── */
+.remarque-input {
+  width: 100%;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  color: var(--text);
+  font-size: 13px;
+  font-family: var(--font);
+  padding: 8px 12px;
+  resize: none;
+  outline: none;
+  transition: border-color .2s;
+}
+.remarque-input:focus { border-color: var(--accent); }
+.remarque-input::placeholder { color: #3a5570; }
+
+/* ── LINK BTN ── */
+.link-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  color: var(--muted);
+  font-size: 12px;
+  font-family: var(--font);
+  padding: 7px 12px;
+  cursor: pointer;
+  transition: background .15s, color .15s, border-color .15s;
+  text-decoration: none;
+  width: 100%;
+  justify-content: center;
+}
+.link-btn:hover { background: var(--accent); color: #000; border-color: var(--accent); }
+.link-btn.no-link { opacity: .25; pointer-events: none; }
+.link-btn .icon { font-size: 14px; }
+
+/* ── NAV BUTTONS ── */
+.nav-row {
+  display: flex;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 8px;
+}
+.btn {
+  flex: 1;
+  padding: 10px 0;
+  border-radius: var(--r);
+  border: none;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: var(--font);
+  transition: opacity .2s;
+}
+.btn:disabled { opacity: .25; cursor: not-allowed; }
+.btn-prev { background: var(--card); color: var(--muted); border: 1px solid var(--border); }
+.btn-prev:not(:disabled):hover { background: var(--border); color: var(--text); }
+.btn-next { background: var(--accent); color: #000; }
+.btn-next:hover:not(:disabled) { opacity: .85; }
+
+/* ── RIGHT PANEL (iframe) ── */
+.right-panel {
+  flex: 1;
+  background: #111;
+  display: flex;
+  flex-direction: column;
+}
+.iframe-toolbar {
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+  padding: 6px 12px;
+  font-size: 11px;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.iframe-url {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10px;
+  color: #3a5570;
+}
+.iframe-refresh {
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: background .15s;
+}
+.iframe-refresh:hover { background: var(--border); color: var(--text); }
+.no-url-msg {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #2a4560;
+  font-size: 14px;
+  gap: 8px;
+}
+#verif-frame {
+  flex: 1;
+  border: none;
+  width: 100%;
+}
+
+/* ── RECAP / SUBMIT SCREEN ── */
+.recap-screen {
+  display: none;
+  flex-direction: column;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  padding: 30px;
+  text-align: center;
+}
+.recap-screen.active { display: flex; }
+.recap-title { font-size: 20px; font-weight: 800; color: var(--text); }
+.recap-stats {
+  display: flex;
+  gap: 24px;
+}
+.stat-box {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 16px 24px;
+  text-align: center;
+}
+.stat-num { font-size: 32px; font-weight: 800; }
+.stat-num.ok-color  { color: var(--ok); }
+.stat-num.nok-color { color: var(--nok); }
+.stat-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-top: 4px; }
+.nok-list {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 12px 16px;
+  text-align: left;
+  max-width: 500px;
+  width: 100%;
+  max-height: 200px;
+  overflow-y: auto;
+}
+.nok-list-title { font-size: 11px; color: var(--nok); font-weight: 700; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 8px; }
+.nok-item { font-size: 12px; color: var(--text); padding: 3px 0; border-bottom: 1px solid var(--border); }
+.nok-item:last-child { border-bottom: none; }
+.nok-cat { color: var(--muted); font-size: 10px; }
+.btn-submit {
+  background: var(--accent);
+  color: #000;
+  border: none;
+  border-radius: var(--r);
+  padding: 12px 32px;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+  font-family: var(--font);
+  transition: opacity .2s;
+}
+.btn-submit:hover { opacity: .85; }
+.btn-submit:disabled { opacity: .35; cursor: not-allowed; }
+
+/* ── TOAST ── */
+#toast {
+  position: fixed;
+  top: 60px; right: 16px;
+  background: var(--ok);
+  color: #000;
+  padding: 10px 18px;
+  border-radius: var(--r);
+  font-weight: 700;
+  font-size: 13px;
+  opacity: 0;
+  transform: translateY(-8px);
+  transition: opacity .3s, transform .3s;
+  pointer-events: none;
+  z-index: 999;
+}
+#toast.show { opacity: 1; transform: translateY(0); }
+#toast.error { background: var(--nok); color: #fff; }
+
+/* ── SCROLL ── */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="logo">OVPF</div>
+  <div class="topbar-meta">
+    <div>
+      <div class="topbar-label">Opérateur</div>
+      <input type="text" id="operateur" placeholder="Nom…" style="width:120px">
+    </div>
+    <div>
+      <div class="topbar-label">Date</div>
+      <input type="date" id="date-routine">
+    </div>
+    <div>
+      <div class="topbar-label">Heure</div>
+      <input type="time" id="heure-routine">
+    </div>
+  </div>
+  <div style="font-size:11px;color:var(--muted);text-align:right" id="header-date"></div>
+</div>
+
+<!-- PROGRESS -->
+<div class="progress-wrap">
+  <div class="progress-track"><div class="progress-fill" id="prog-fill"></div></div>
+  <div class="progress-label" id="prog-label">1 / 68</div>
+  <div class="progress-nok" id="prog-nok"></div>
+</div>
+
+<!-- SPLIT -->
+<div class="split" id="split-view">
+
+  <!-- LEFT -->
+  <div class="left-panel" id="left-panel">
+    <div class="item-cat" id="item-cat"></div>
+    <div class="item-label-text" id="item-label"></div>
+
+    <div class="toggle-row">
+      <label class="toggle">
+        <input type="checkbox" id="toggle-ok">
+        <span class="toggle-slider"></span>
+      </label>
+      <span class="toggle-label" id="toggle-lbl">NOK</span>
+    </div>
+
+    <textarea class="remarque-input" id="remarque" rows="3" placeholder="Remarque (optionnelle)…"></textarea>
+
+    <a class="link-btn" id="link-btn" href="#" target="_blank">
+      <span class="icon">↗</span> Ouvrir la vérification
+    </a>
+
+    <div class="nav-row">
+      <button class="btn btn-prev" id="btn-prev" onclick="navigate(-1)">← Précédent</button>
+      <button class="btn btn-next" id="btn-next" onclick="navigate(1)">Suivant →</button>
+    </div>
+  </div>
+
+  <!-- RIGHT (iframe) -->
+  <div class="right-panel" id="right-panel">
+    <div class="iframe-toolbar">
+      <span>Vérification</span>
+      <span class="iframe-url" id="iframe-url-label">—</span>
+      <button class="iframe-refresh" id="btn-refresh" onclick="refreshFrame()" title="Recharger">↺</button>
+    </div>
+    <div class="no-url-msg" id="no-url-msg">
+      <span>🔗</span> Aucun lien pour cet item
+    </div>
+    <iframe id="verif-frame" src="about:blank" sandbox="allow-same-origin allow-scripts allow-forms allow-popups"></iframe>
+  </div>
+</div>
+
+<!-- RECAP SCREEN -->
+<div class="recap-screen" id="recap-screen">
+  <div class="recap-title">Récapitulatif de la fiche</div>
+  <div class="recap-stats">
+    <div class="stat-box">
+      <div class="stat-num ok-color" id="recap-ok">0</div>
+      <div class="stat-label">OK</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-num nok-color" id="recap-nok">68</div>
+      <div class="stat-label">NOK</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-num" id="recap-statut" style="font-size:16px;padding-top:8px">—</div>
+      <div class="stat-label">Statut</div>
+    </div>
+  </div>
+  <div class="nok-list" id="nok-list" style="display:none">
+    <div class="nok-list-title">Items NOK</div>
+    <div id="nok-list-items"></div>
+  </div>
+  <button class="btn-submit" id="btn-submit" onclick="submitRoutine()">Soumettre la fiche →</button>
+  <button class="btn btn-prev" style="max-width:200px" onclick="showItem(ITEMS.length-1)">← Revenir au dernier item</button>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ─── CHECKLIST DATA ──────────────────────────────────────────────────────────
+const yesterday = () => {
+  const d = new Date(); d.setDate(d.getDate() - 1);
+  return `${String(d.getDate()).padStart(2,'0')}-${String(d.getMonth()+1).padStart(2,'0')}-${d.getFullYear()}`;
+};
+
+const ITEMS = [
+  // Sefran et bulletin
+  {cat:'Sefran et bulletin',label:'Dépouillement Sefran PF et envoi du bulletin',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/cgi-bin/sefran3.pl?header=1'},
+  {cat:'Sefran et bulletin',label:'Dépouillement Sefran Mayotte et envoi du bulletin',reseau:'Mayotte',url:'https://webobs.ovpf.ipgp.fr/php/sgram-revosima/SGRAM_LF2/index.html'},
+  {cat:'Sefran et bulletin',label:"Liste d'appel",reseau:'PF',url:'http://195.83.188.10:6001/'},
+  // Alarme
+  {cat:'Alarme anti-intrusion',label:'État alarme anti-intrusion',reseau:'PF',url:'http://195.83.188.219/keypad.cgi'},
+  // Caméras
+  {cat:'Caméras',label:'CratèreBory (CBOC)',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/php/cameras/camera.php?camera=Bory&format=axis'},
+  {cat:'Caméras',label:'Piton des Basaltes (BASC)',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/php/cameras/camera.php?camera=Basalte&format=axis'},
+  {cat:'Caméras',label:'Cratère Fontaine (CFNC)',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/php/cameras/camera.php?camera=CFNC&format=axis'},
+  {cat:'Caméras',label:'Piton de Partage (PARC)',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/php/cameras/camera.php?camera=PARC&format=axis'},
+  {cat:'Caméras',label:'Enclos (ENCC)',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/php/cameras/camera.php?camera=ENCC&format=axis'},
+  {cat:'Caméras',label:'Piton de Bert (BERC)',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/php/cameras/camera.php?camera=Bert&format=axis'},
+  {cat:'Caméras',label:'Piton des Cascades (CASC)',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/php/cameras/camera.php?camera=Cascades&format=axis'},
+  {cat:'Caméras',label:'Piton de Bert IRT (BERT1)',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/php/cameras/camera.php?camera=BERT1&format=axis'},
+  {cat:'Caméras',label:'Piton de Bert IRT (BERT2)',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/php/cameras/camera.php?camera=BERT2&format=axis'},
+  {cat:'Caméras',label:'Piton de Bert IRT (BERT3)',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/php/cameras/camera.php?camera=BERT3&format=axis'},
+  {cat:'Caméras',label:'Piton de Bert IRT (BERT4)',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/php/cameras/camera.php?camera=BERT4&format=axis'},
+  {cat:'Caméras',label:'Cratère Dolomieu Est (DOEC)',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/php/cameras/camera.php?camera=DOEC&format=axis'},
+  {cat:'Caméras',label:'Hubert Delisle (HDLC)',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/php/cameras/camera.php?camera=HDLC1&format=axis'},
+  {cat:'Caméras',label:"Caméras à l'heure (synchro)",reseau:'PF',url:'https://www.ipgp.fr/volcanoweb/reunion/html_static_webcam/cameras-ovpf.html'},
+  // RSAM
+  {cat:'Alarme sismique RSAM',label:'BOR.EHZ — seuil 0.8',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/php/images/sismo/RSAM2/BOR_1440.png'},
+  {cat:'Alarme sismique RSAM',label:'CSS.HHZ — seuil 0.8',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/php/images/sismo/RSAM2/CSS_1440.png'},
+  {cat:'Alarme sismique RSAM',label:'FJS.HHZ — seuil 0.8',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/php/images/sismo/RSAM2/FJS_1440.png'},
+  {cat:'Alarme sismique RSAM',label:'CRA.HHZ — seuil 0.8',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/php/images/sismo/RSAM2/CRA_1440.png'},
+  {cat:'Alarme sismique RSAM',label:'FOR.HHZ — seuil 0.8',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/php/images/sismo/RSAM2/FOR_1440.png'},
+  {cat:'Alarme sismique RSAM',label:'GPS.HHZ — seuil 0.8',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/php/images/sismo/RSAM2/GPS_1440.png'},
+  {cat:'Alarme sismique RSAM',label:'HIM.HHZ — seuil 0.8',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/php/images/sismo/RSAM2/HIM_1440.png'},
+  {cat:'Alarme sismique RSAM',label:'BLE.EHZ — seuil 0.8',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/php/images/sismo/RSAM2/BLE_1440.png'},
+  {cat:'Alarme sismique RSAM',label:'HDL.HHZ — seuil 0.8',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/php/images/sismo/RSAM2/HDL_1440.png'},
+  {cat:'Alarme sismique RSAM',label:'DSO.HHZ — seuil 0.8',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/php/images/sismo/RSAM2/DSO_1440.png'},
+  {cat:'Alarme sismique RSAM',label:'RVA.HHZ — seuil 0.8',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/php/images/sismo/RSAM2/RVA_1440.png'},
+  {cat:'Alarme sismique RSAM',label:'PVD.HHZ — seuil 0.8',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/php/images/sismo/RSAM2/PVD_1440.png'},
+  {cat:'Alarme sismique RSAM',label:'PRA.HHZ — seuil 0.8',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/php/images/sismo/RSAM2/PRA_1440.png'},
+  {cat:'Alarme sismique RSAM',label:'TKR.EHZ — seuil 0.8',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/php/images/sismo/RSAM2/TKR_1440.png'},
+  // EW Songe
+  {cat:'Alarme sismique EW Songe',label:"Test de l'alarme EW Songe",reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/php/alarme/index.php?ovpf=1'},
+  // Graphes
+  {cat:'Graphes',label:'SefraN à jour',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/cgi-bin/sefran3.pl?header=1'},
+  {cat:'Graphes',label:'Graphes RSAM à jour',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/php/sismo/affich_rsam_rt_sorted.php?duration=120'},
+  {cat:'Graphes',label:'Jerk RER à jour',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/cgi-bin/showOUTG.pl?grid=PROC.JERKRER&ts=05d&g=rsbrer0'},
+  {cat:'Graphes',label:'CovSeisNet temps réel',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/php/sismo/covseisnet/CovSeisNet.html'},
+  {cat:'Graphes',label:'RSAM source map',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/cgi-bin/showOUTG.pl?grid=PROC.RSAM_PF&refresh=3600&header=&ts=01h&g=SOURCEMAP'},
+  {cat:'Graphes',label:'Graphes NOVAC à jour',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/cgi-bin/showOUTG.pl?grid=PROC.NOVACPF&refresh=3600&header=&ts=01w&g=col'},
+  {cat:'Graphes',label:'Graphes CO2 à jour',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/cgi-bin/showOUTG.pl?grid=PROC.GEOCHEM_CODEUX&refresh=3600&header=&ts=01w&g=col'},
+  {cat:'Graphes',label:'Graphes Multigaz à jour',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/php/geochimie/multigas.php?days=7j'},
+  {cat:'Graphes',label:'Graphes UDMN à jour',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/cgi-bin/showOUTG.pl?grid=PROC.GEOCHEM_CODEUX_REVOSIMA&refresh=3600&header=&ts=01w&g=macsudmn'},
+  // GNSS
+  {cat:'GNSS',label:'Cartes GNSS GIPSY à jour',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/cgi-bin/showOUTG.pl?grid=PROC.GIPSYX&ts=60d&g=MODELLING_pCDM'},
+  {cat:'GNSS',label:'Status GIPSY (sauf GBNG)',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/cgi-bin/showOUTG.pl?grid=PROC.GIPSYXREVOSIMA&refresh=3600&header=&ts=03m&g=SUMMARY'},
+  {cat:'GNSS',label:'Graphes GNSS GipsyX Mayotte à jour',reseau:'Mayotte',url:'https://webobs.ovpf.ipgp.fr/cgi-bin/showOUTG.pl?grid=PROC.GIPSYXREVOSIMA&refresh=3600&header=&ts=03m&g=SUMMARY'},
+  {cat:'GNSS',label:'Status GipsyX Mayotte',reseau:'Mayotte',url:'https://webobs.ovpf.ipgp.fr/cgi-bin/showGRID.pl?grid=PROC.GIPSYXREVOSIMA#SPECS'},
+  // Déformation
+  {cat:'Déformation',label:'Graphes inclinomètres à jour',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/php/inclino/vecteurs.php'},
+  {cat:'Déformation',label:'Graphes extensomètres à jour',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/cgi-bin/showOUTG.pl?grid=PROC.EXTENSO&refresh=3600&header=&ts=02w&g=col'},
+  // Météo
+  {cat:'Météo / Pluvio',label:'Graphes pluviomètres à jour',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/cgi-bin/showOUTG.pl?grid=PROC.PLUVIO&refresh=3600&header=&ts=07d&g=col'},
+  {cat:'Météo / Pluvio',label:'Pluvio GPNW',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/cgi-bin/showOUTG.pl?grid=PROC.PLUVIO_GPNW&refresh=3600&header=&ts=07d&g=col'},
+  {cat:'Météo / Pluvio',label:'Météo CFNW',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/cgi-bin/showOUTG.pl?grid=PROC.MTO_OVPF&refresh=3600&header=&ts=07d&g=rmmcfnw'},
+  // Sismique qualité (URLs dynamiques J-1)
+  {cat:'Sismique qualité',label:'Qualité des données sismiques',reseau:'PF',url:()=>`https://webobs.ovpf.ipgp.fr/php/qc/index_qc4.php?qc_category=RSAM&station=ALL&date=${yesterday()}`},
+  {cat:'Sismique qualité',label:'Composantes continues sismo analogiques',reseau:'PF',url:()=>`https://webobs.ovpf.ipgp.fr/php/qc/index_qc4.php?qc_category=ValeursMoyennes&station=ALL&date=${yesterday()}`},
+  // Réseau
+  {cat:'Réseau général',label:'Réseau informatique',reseau:'PF',url:'http://172.16.100.17/nagios/cgi-bin/status.cgi?hostgroup=routine&style=hostdetail'},
+  {cat:'Réseau général',label:"Programmes d'acquisition",reseau:'PF',url:'http://172.16.100.17/nagios/cgi-bin/status.cgi?servicegroup=acquisitions&style=detail'},
+  {cat:'Réseau général',label:'Acquisition radex version 8.2.2',reseau:'PF',url:''},
+  // Onduleur
+  {cat:'Onduleur',label:'Taux de charge utilisation (%)',reseau:'PF',url:'http://195.83.188.242/'},
+  {cat:'Onduleur',label:'Capacité batterie (%)',reseau:'PF',url:'http://195.83.188.242/'},
+  // Groupe élec
+  {cat:'Groupe électrogène',label:'Mode de fonctionnement',reseau:'PF',url:'http://10.10.1.252/cgi-bin/testL3B.py'},
+  {cat:'Groupe électrogène',label:'Mesure batterie (V)',reseau:'PF',url:'http://10.10.1.252/cgi-bin/testL3B.py'},
+  {cat:'Groupe électrogène',label:'Réserve cuve interne gasoil (%)',reseau:'PF',url:'http://10.10.1.252/cgi-bin/testL3B.py'},
+  {cat:'Groupe électrogène',label:'Compteur horaire total',reseau:'PF',url:'http://10.10.1.252/cgi-bin/testL3B.py'},
+  {cat:'Groupe électrogène',label:'Lecture vumètre grande cuve gasoil (litres)',reseau:'PF',url:'http://10.10.1.252/cgi-bin/testL3B.py'},
+  // Divers
+  {cat:'Divers',label:"Compléter le registre d'astreinte",reseau:'PF',url:''},
+  {cat:'Divers',label:'Défibrillateur (début de semaine)',reseau:'PF',url:''},
+  {cat:'Divers',label:'Renvoi GSM Astreinte',reseau:'PF',url:''},
+  {cat:'Divers',label:'Bulletin OVPF à Paris',reseau:'PF',url:'https://www.ipgp.fr/volcanoweb/reunion/Bulletin_quotidien/bulletin.html'},
+  {cat:'Divers',label:'Bulletin Revosima à Paris',reseau:'Mayotte',url:'https://www.ipgp.fr/volcanoweb/mayotte/Bulletin_quotidien/bulletin.html'},
+];
+
+// ─── STATE ───────────────────────────────────────────────────────────────────
+const state = ITEMS.map(() => ({ ok: false, remarque: '' }));
+let current = 0;
+
+// ─── GRIST ───────────────────────────────────────────────────────────────────
+grist.ready({ requiredAccess: 'full' });
+(function() {
+  const p = new URLSearchParams(window.location.search);
+  if (p.get('operateur')) document.getElementById('operateur').value = p.get('operateur');
+})();
+
+// ─── INIT ────────────────────────────────────────────────────────────────────
+function init() {
+  const now = new Date();
+  document.getElementById('header-date').textContent =
+    now.toLocaleDateString('fr-FR', { weekday:'long', day:'2-digit', month:'long', year:'numeric' });
+  document.getElementById('date-routine').value = now.toISOString().slice(0,10);
+  document.getElementById('heure-routine').value = now.toTimeString().slice(0,5);
+  showItem(0);
+}
+
+// ─── SHOW ITEM ───────────────────────────────────────────────────────────────
+function showItem(idx) {
+  // Save current state before switching
+  saveCurrentState();
+
+  if (idx >= ITEMS.length) { showRecap(); return; }
+  if (idx < 0) idx = 0;
+  current = idx;
+
+  const item = ITEMS[idx];
+  const s    = state[idx];
+  const url  = typeof item.url === 'function' ? item.url() : item.url;
+
+  // Show split view
+  document.getElementById('split-view').style.display = 'flex';
+  document.getElementById('recap-screen').classList.remove('active');
+
+  // Left panel
+  document.getElementById('item-cat').textContent = item.cat;
+  document.getElementById('item-label').innerHTML =
+    item.label + (item.reseau === 'Mayotte' ? '<span class="badge-mayotte">MAYOTTE</span>' : '');
+
+  const chk = document.getElementById('toggle-ok');
+  chk.checked = s.ok;
+  updateToggleLabel(s.ok);
+
+  document.getElementById('remarque').value = s.remarque;
+
+  // Link button
+  const lb = document.getElementById('link-btn');
+  if (url) {
+    lb.href = url;
+    lb.classList.remove('no-link');
+  } else {
+    lb.href = '#';
+    lb.classList.add('no-link');
+  }
+
+  // Right panel — iframe
+  const frame = document.getElementById('verif-frame');
+  const noUrl = document.getElementById('no-url-msg');
+  const urlLabel = document.getElementById('iframe-url-label');
+  const refreshBtn = document.getElementById('btn-refresh');
+
+  if (url) {
+    frame.style.display = 'block';
+    noUrl.style.display = 'none';
+    frame.src = url;
+    urlLabel.textContent = url;
+    refreshBtn.style.display = 'block';
+  } else {
+    frame.style.display = 'none';
+    noUrl.style.display = 'flex';
+    urlLabel.textContent = '—';
+    refreshBtn.style.display = 'none';
+    frame.src = 'about:blank';
+  }
+
+  // Nav buttons
+  document.getElementById('btn-prev').disabled = (idx === 0);
+  document.getElementById('btn-next').textContent = idx === ITEMS.length - 1 ? 'Récapitulatif →' : 'Suivant →';
+
+  updateProgress();
+}
+
+function saveCurrentState() {
+  if (current < ITEMS.length) {
+    state[current].ok       = document.getElementById('toggle-ok').checked;
+    state[current].remarque = document.getElementById('remarque').value;
+  }
+}
+
+function navigate(dir) {
+  saveCurrentState();
+  showItem(current + dir);
+}
+
+function refreshFrame() {
+  const frame = document.getElementById('verif-frame');
+  frame.src = frame.src;
+}
+
+// ─── TOGGLE ──────────────────────────────────────────────────────────────────
+document.getElementById('toggle-ok').addEventListener('change', function() {
+  updateToggleLabel(this.checked);
+  updateProgress();
+});
+
+function updateToggleLabel(ok) {
+  const lbl = document.getElementById('toggle-lbl');
+  lbl.textContent = ok ? 'OK' : 'NOK';
+  lbl.className = 'toggle-label' + (ok ? ' is-ok' : '');
+}
+
+// ─── PROGRESS ────────────────────────────────────────────────────────────────
+function updateProgress() {
+  // Count OK from state + current live toggle
+  const liveOk = document.getElementById('toggle-ok').checked;
+  const okCount = state.reduce((n, s, i) => n + (i === current ? (liveOk ? 1 : 0) : (s.ok ? 1 : 0)), 0);
+  const nokCount = ITEMS.length - okCount;
+  const pct = Math.round(okCount / ITEMS.length * 100);
+
+  document.getElementById('prog-fill').style.width = pct + '%';
+  document.getElementById('prog-label').textContent = `${current + 1} / ${ITEMS.length}  ·  ${okCount} OK`;
+  document.getElementById('prog-nok').textContent = nokCount > 0 ? `${nokCount} NOK` : '';
+}
+
+// ─── RECAP ───────────────────────────────────────────────────────────────────
+function showRecap() {
+  saveCurrentState();
+
+  document.getElementById('split-view').style.display = 'none';
+  document.getElementById('recap-screen').classList.add('active');
+
+  const okCount  = state.filter(s => s.ok).length;
+  const nokCount = ITEMS.length - okCount;
+  const statut   = nokCount === 0 ? 'OK' : nokCount <= 3 ? 'Pannes mineures' : 'Pannes majeures';
+
+  document.getElementById('recap-ok').textContent     = okCount;
+  document.getElementById('recap-nok').textContent    = nokCount;
+  document.getElementById('recap-statut').textContent = statut;
+  document.getElementById('recap-statut').style.color =
+    nokCount === 0 ? 'var(--ok)' : nokCount <= 3 ? 'var(--accent)' : 'var(--nok)';
+
+  const nokItems = ITEMS.filter((_, i) => !state[i].ok);
+  const nl = document.getElementById('nok-list');
+  if (nokItems.length > 0) {
+    nl.style.display = 'block';
+    document.getElementById('nok-list-items').innerHTML = nokItems.map((it, i) =>
+      `<div class="nok-item">
+        <span class="nok-cat">${it.cat} — </span>${it.label}
+        ${state[ITEMS.indexOf(it)].remarque ? `<br><span style="color:var(--muted);font-size:11px">${state[ITEMS.indexOf(it)].remarque}</span>` : ''}
+      </div>`
+    ).join('');
+  } else {
+    nl.style.display = 'none';
+  }
+}
+
+// ─── SUBMIT ──────────────────────────────────────────────────────────────────
+async function submitRoutine() {
+  const operateur = document.getElementById('operateur').value.trim();
+  const dateVal   = document.getElementById('date-routine').value;
+  const heureVal  = document.getElementById('heure-routine').value;
+
+  if (!operateur) { showToast('Saisir le nom de l\'opérateur', true); return; }
+  if (!dateVal)   { showToast('Saisir la date', true); return; }
+
+  const btn = document.getElementById('btn-submit');
+  btn.disabled = true;
+  btn.textContent = 'Enregistrement…';
+
+  const nokCount = state.filter(s => !s.ok).length;
+  const statut   = nokCount === 0 ? 'OK' : nokCount <= 3 ? 'Pannes mineures' : 'Pannes majeures';
+
+  try {
+    for (let i = 0; i < ITEMS.length; i++) {
+      await grist.selectedTable.create({
+        fields: {
+          operateur,
+          date_routine: dateVal,
+          heure_routine: heureVal,
+          statut_global: statut,
+          categorie: ITEMS[i].cat,
+          item_label: ITEMS[i].label,
+          ok: state[i].ok,
+          remarque: state[i].remarque,
+          reseau: ITEMS[i].reseau,
+        }
+      });
+    }
+
+    showToast(`Fiche enregistrée — ${nokCount} NOK`);
+    btn.textContent = '✓ Soumis';
+
+    setTimeout(() => {
+      // Reset
+      state.forEach(s => { s.ok = false; s.remarque = ''; });
+      btn.disabled = false;
+      btn.textContent = 'Soumettre la fiche →';
+      init();
+    }, 2500);
+
+  } catch(err) {
+    console.error(err);
+    showToast('Erreur : ' + err.message, true);
+    btn.disabled = false;
+    btn.textContent = 'Soumettre la fiche →';
+  }
+}
+
+// ─── TOAST ───────────────────────────────────────────────────────────────────
+function showToast(msg, isError = false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show' + (isError ? ' error' : '');
+  setTimeout(() => { t.className = ''; }, 3500);
+}
+
+// ─── KEYBOARD ────────────────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
+  if (e.key === 'ArrowRight' || e.key === 'Enter') navigate(1);
+  if (e.key === 'ArrowLeft')  navigate(-1);
+  if (e.key === ' ') {
+    e.preventDefault();
+    const chk = document.getElementById('toggle-ok');
+    chk.checked = !chk.checked;
+    updateToggleLabel(chk.checked);
+    updateProgress();
+  }
+});
+
+init();
+</script>
+</body>
+</html>
