@@ -597,9 +597,10 @@ function updateProgress() {
     `<strong>${okCount}</strong> OK &nbsp;·&nbsp; <strong>${nokCount}</strong> NOK &nbsp;·&nbsp; ${pct}% complété`;
 }
 
-// ─── GRIST API (interne plugin — same-origin, pas de CORS) ─────────────────
-// On utilise grist.docApi.getAccessToken() pour obtenir un token temporaire
-// valide same-origin, puis fetch() vers baseUrl fourni par Grist lui-même.
+// ─── GRIST API (selectedTable.create — same-origin, zéro CORS) ─────────────
+// grist.selectedTable.create() est l'API native du plugin Grist.
+// Pas de fetch externe, pas de clé API, pas de CORS.
+// La table cible est celle sélectionnée dans le widget Grist.
 
 grist.ready({ requiredAccess: 'full' });
 
@@ -608,30 +609,6 @@ grist.ready({ requiredAccess: 'full' });
   const p = new URLSearchParams(window.location.search);
   if (p.get('operateur')) document.getElementById('operateur').value = p.get('operateur');
 })();
-
-async function gristPost(table, records) {
-  // Récupérer un token temporaire same-origin depuis l'API plugin Grist
-  const tokenInfo = await grist.docApi.getAccessToken({ readOnly: false });
-  // tokenInfo.baseUrl  = URL de base du document Grist (same-origin)
-  // tokenInfo.token    = token temporaire à passer en ?auth=
-
-  const url = `${tokenInfo.baseUrl}/tables/${table}/records?auth=${tokenInfo.token}`;
-
-  const resp = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Requested-With': 'XMLHttpRequest',
-    },
-    body: JSON.stringify({ records: records.map(r => ({ fields: r })) }),
-  });
-  if (!resp.ok) {
-    const txt = await resp.text();
-    throw new Error(`HTTP ${resp.status} : ${txt}`);
-  }
-  const data = await resp.json();
-  return data.records.map(r => r.id);
-}
 
 // ─── SUBMIT ─────────────────────────────────────────────────────────────────
 async function submitRoutine() {
@@ -662,11 +639,27 @@ async function submitRoutine() {
     ok: s.ok,
     remarque: s.remarque,
   }));
+  // Architecture table unique : chaque item embarque les champs de la fiche (operateur, date, heure, statut)
+  // La table Grist cible est Routine_Items (sélectionnée dans le widget)
 
   try {
-    const [routineId] = await gristPost('Routines', [routineRecord]);
-    const withFK = checkRecords.map(r => ({ ...r, routine_id: routineId }));
-    await gristPost('CheckItems', withFK);
+    // Écriture dans la table sélectionnée (Routine_Items) via l'API plugin Grist
+    // grist.selectedTable.create() — same-origin, zéro CORS, zéro clé API
+    for (const item of checkRecords) {
+      await grist.selectedTable.create({
+        fields: {
+          operateur,
+          date_routine: dateVal,
+          heure_routine: heureVal,
+          statut_global: statut,
+          categorie: item.categorie,
+          item_label: item.item_label,
+          ok: item.ok,
+          remarque: item.remarque,
+          reseau: item.reseau,
+        }
+      });
+    }
 
     showToast(`Fiche enregistrée — ${nokItems.length} NOK`);
     btn.textContent = '✓ Fiche soumise';
