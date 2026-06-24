@@ -547,21 +547,25 @@ function saveConfig() {
   closeConfig();
   showToast('Configuration enregistrée');
   // ── INITIALISATION GRIST ──────────────────────────────────────────────────
-// grist.ready() DOIT être appelé au top level immédiatement (comme le widget ANCT)
-grist.ready({
-  requiredAccess: 'full',
-  onEditOptions: () => openConfig(),
-});
-
-// Déclencher le chargement une seule fois via onRecords
-let _loaded = false;
-grist.onRecords((records) => {
-  console.log('onRecords fired, _loaded=', _loaded, 'records=', records ? records.length : 0);
-  if (!_loaded) {
-    _loaded = true;
-    console.log('Triggering loadData()');
-    loadData();
+// Attendre que la page soit complètement chargée avant d'appeler grist.ready()
+window.addEventListener('load', () => {
+  console.log('window.load fired, grist type:', typeof grist);
+  if (typeof grist === 'undefined') {
+    document.getElementById('table-wrap').innerHTML =
+      '<div class="empty-state"><div class="icon">⚠</div><p>grist-plugin-api.js non chargé — vérifier la connexion réseau.</p></div>';
+    return;
   }
+  grist.ready({
+    requiredAccess: 'full',
+    onEditOptions: () => openConfig(),
+  });
+  grist.onRecords(() => {
+    if (allRows.length === 0) loadData();
+  });
+  // Fallback après 3s
+  setTimeout(() => {
+    if (allRows.length === 0) loadData();
+  }, 3000);
 });
 }
 
