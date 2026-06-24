@@ -547,26 +547,16 @@ function saveConfig() {
   closeConfig();
   showToast('Configuration enregistrée');
   // ── INITIALISATION GRIST ──────────────────────────────────────────────────
-// Attendre que la page soit complètement chargée avant d'appeler grist.ready()
-window.addEventListener('load', () => {
-  console.log('window.load fired, grist type:', typeof grist);
-  if (typeof grist === 'undefined') {
-    document.getElementById('table-wrap').innerHTML =
-      '<div class="empty-state"><div class="icon">⚠</div><p>grist-plugin-api.js non chargé — vérifier la connexion réseau.</p></div>';
-    return;
-  }
-  grist.ready({
-    requiredAccess: 'full',
-    onEditOptions: () => openConfig(),
-  });
-  grist.onRecords(() => {
-    if (allRows.length === 0) loadData();
-  });
-  // Fallback après 3s
-  setTimeout(() => {
-    if (allRows.length === 0) loadData();
-  }, 3000);
-});
+// Identique au widget de test qui fonctionne :
+// grist.ready() au top level, loadData() déclenché manuellement ou au clic
+grist.ready({ requiredAccess: 'full' });
+
+// Afficher le bouton de chargement initial
+document.getElementById('table-wrap').innerHTML = `
+  <div class="empty-state">
+    <div class="icon">📊</div>
+    <p>Cliquer sur ↺ pour charger les données</p>
+  </div>`;
 }
 
 // ─── STATE ───────────────────────────────────────────────────────────────────
