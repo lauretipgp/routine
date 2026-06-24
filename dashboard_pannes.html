@@ -1,3 +1,4 @@
+<!-- OVPF Dashboard v6 -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -547,16 +548,14 @@ function saveConfig() {
   closeConfig();
   showToast('Configuration enregistrée');
   // ── INITIALISATION GRIST ──────────────────────────────────────────────────
-// Identique au widget de test qui fonctionne :
-// grist.ready() au top level, loadData() déclenché manuellement ou au clic
-grist.ready({ requiredAccess: 'full' });
-
-// Afficher le bouton de chargement initial
-document.getElementById('table-wrap').innerHTML = `
-  <div class="empty-state">
-    <div class="icon">📊</div>
-    <p>Cliquer sur ↺ pour charger les données</p>
-  </div>`;
+// grist.ready() avec callback — loadData() appelé APRÈS que Grist accorde l'accès
+grist.ready({
+  requiredAccess: 'full',
+  onReady() {
+    console.log('grist.onReady — accès accordé, chargement des données');
+    loadData();
+  }
+});
 }
 
 // ─── STATE ───────────────────────────────────────────────────────────────────
@@ -584,8 +583,10 @@ async function fetchGrist() {
 
   // Obtenir un token JWT temporaire (valide 15 min)
   const tokenInfo = await grist.docApi.getAccessToken({ readOnly: true });
+  console.log('Token OK, baseUrl:', tokenInfo.baseUrl);
 
   const url = `${tokenInfo.baseUrl}/tables/${encodeURIComponent(table)}/records?auth=${tokenInfo.token}`;
+  console.log('Fetching URL:', url.split('?')[0]);
   const resp = await fetch(url, {
     method: 'GET',
     headers: { 'X-Requested-With': 'XMLHttpRequest' },
@@ -962,4 +963,3 @@ document.getElementById('cf-date-start').value = s.toISOString().slice(0,10);
 </script>
 </body>
 </html>
-
