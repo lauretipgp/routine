@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OVPF — Analyse des pannes (F2)</title>
+<script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+<style>
+:root {
+  --bg:      #08131e;
+  --surface: #0d1f30;
+  --card:    #112840;
+  --border:  #1a3a55;
+  --border2: #0f2234;
+  --accent:  #e8a020;
+  --ok:      #22c97a;
+  --nok:     #e84545;
+  --new:     #f59e0b;
+  --text:    #c8dff2;
+  --muted:   #4f7a9a;
+  --font:    'Segoe UI', system-ui, sans-serif;
+  --mono:    'Consolas', 'Courier New', monospace;
+  --r:       6px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 14px;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ── TOPBAR ── */
+.topbar {
+  background: var(--surface);
+  border-bottom: 2px solid var(--accent);
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 50px;
+  flex-shrink: 0;
+}
+.logo {
+  width: 30px; height: 30px;
+  background: var(--accent);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: 10px; color: #000;
+  flex-shrink: 0;
+}
+.topbar-title { font-size: 14px; font-weight: 700; }
+.topbar-sub   { font-size: 10px; color: var(--muted); }
+.topbar-spacer { flex: 1; }
+.badge-date {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 4px 10px;
+  font-size: 12px;
+  font-family: var(--mono);
+  color: var(--accent);
+}
+.btn-sm {
+  background: var(--card);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  border-radius: var(--r);
+  padding: 5px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: var(--font);
+  transition: all .15s;
+}
+.btn-sm:hover { border-color: var(--accent); color: var(--text); }
+
+/* ── STATS BAR ── */
+.stats-bar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 6px 16px;
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  flex-shrink: 0;
+  font-size: 12px;
+}
+.stat { display: flex; align-items: center; gap: 6px; }
+.stat-num { font-weight: 700; font-family: var(--mono); }
+.stat-num.red  { color: var(--nok); }
+.stat-num.green { color: var(--ok); }
+.stat-num.orange { color: var(--new); }
+
+/* ── MAIN LAYOUT ── */
+.main {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* ── LEFT : liste NOK ── */
+.nok-list {
+  width: 340px;
+  flex-shrink: 0;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+.nok-header {
+  padding: 10px 14px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .6px;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+  background: var(--card);
+  position: sticky; top: 0; z-index: 10;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.nok-search {
+  flex: 1;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 4px;
+  padding: 3px 7px;
+  font-size: 11px;
+  font-family: var(--font);
+}
+.nok-search:focus { outline: none; border-color: var(--accent); }
+
+.cat-group { border-bottom: 1px solid var(--border2); }
+.cat-label {
+  padding: 7px 14px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  color: var(--accent);
+  background: rgba(232,160,32,.06);
+  border-bottom: 1px solid var(--border2);
+}
+
+.nok-item {
+  padding: 10px 14px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border2);
+  transition: background .1s;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.nok-item:hover { background: var(--card); }
+.nok-item.selected { background: rgba(232,160,32,.12); border-left: 3px solid var(--accent); padding-left: 11px; }
+.nok-item.done { opacity: .5; }
+.nok-item.done .item-name { text-decoration: line-through; }
+.nok-item.grouped { border-left: 3px solid var(--ok); padding-left: 11px; }
+
+.item-check {
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  flex-shrink: 0;
+  margin-top: 2px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 9px;
+}
+.item-check.done  { background: var(--ok); border-color: var(--ok); color: #000; }
+.item-check.grouped { background: var(--new); border-color: var(--new); color: #000; }
+
+.item-body { flex: 1; min-width: 0; }
+.item-name { font-size: 12px; font-weight: 600; color: var(--text); line-height: 1.3; }
+.item-meta { font-size: 10px; color: var(--muted); margin-top: 2px; }
+.item-rem  { font-size: 10px; color: var(--new); font-style: italic; margin-top: 2px; }
+
+.badge-reseau {
+  font-size: 9px; font-weight: 700;
+  border-radius: 3px; padding: 1px 5px;
+  flex-shrink: 0;
+}
+.badge-pf      { background: rgba(56,189,248,.15); color: #38bdf8; }
+.badge-mayotte { background: rgba(123,104,238,.18); color: #7b68ee; }
+
+/* ── RIGHT : panneau formulaire ── */
+.panel {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  background: var(--bg);
+}
+
+.panel-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--muted);
+  gap: 12px;
+}
+.panel-empty .icon { font-size: 40px; }
+.panel-empty p { font-size: 13px; text-align: center; max-width: 260px; line-height: 1.5; }
+
+.panel-form { display: flex; flex-direction: column; gap: 16px; }
+
+.form-title {
+  font-size: 15px; font-weight: 700; color: var(--text);
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.form-title .item-tag {
+  font-size: 11px; color: var(--muted); font-weight: 400;
+  margin-top: 4px;
+}
+
+.form-section { display: flex; flex-direction: column; gap: 10px; }
+.form-section-title {
+  font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .6px;
+  color: var(--accent);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 5px;
+}
+
+.form-row { display: flex; flex-direction: column; gap: 4px; }
+.form-row.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.form-label { font-size: 11px; color: var(--muted); }
+.form-input, .form-select, .form-textarea {
+  background: var(--card);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: var(--r);
+  padding: 7px 10px;
+  font-size: 13px;
+  font-family: var(--font);
+  width: 100%;
+}
+.form-input:focus, .form-select:focus, .form-textarea:focus {
+  outline: none; border-color: var(--accent);
+}
+.form-textarea { resize: vertical; min-height: 70px; }
+
+/* ── GROUPEMENT ── */
+.group-section {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 12px;
+}
+.group-title {
+  font-size: 11px; font-weight: 700; color: var(--muted);
+  margin-bottom: 8px;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.group-items { display: flex; flex-direction: column; gap: 4px; }
+.group-item {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px; padding: 4px 6px;
+  background: var(--surface);
+  border-radius: 4px;
+}
+.group-item-remove {
+  background: none; border: none; color: var(--muted);
+  cursor: pointer; font-size: 14px; padding: 0 4px;
+  margin-left: auto;
+}
+.group-item-remove:hover { color: var(--nok); }
+.btn-add-group {
+  background: none;
+  border: 1px dashed var(--border);
+  color: var(--muted);
+  border-radius: var(--r);
+  padding: 5px;
+  font-size: 11px;
+  cursor: pointer;
+  width: 100%;
+  margin-top: 6px;
+  font-family: var(--font);
+  transition: all .15s;
+}
+.btn-add-group:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ── ACTIONS ── */
+.form-actions {
+  display: flex;
+  gap: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+.btn-create {
+  flex: 1;
+  background: var(--accent);
+  border: none;
+  color: #000;
+  border-radius: var(--r);
+  padding: 10px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: var(--font);
+  transition: background .15s;
+}
+.btn-create:hover { background: #c4841a; }
+.btn-create:disabled { opacity: .5; cursor: not-allowed; }
+.btn-skip {
+  background: var(--card);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  border-radius: var(--r);
+  padding: 10px 16px;
+  font-size: 13px;
+  cursor: pointer;
+  font-family: var(--font);
+}
+.btn-skip:hover { border-color: var(--border); color: var(--text); }
+
+/* ── TICKET CRÉÉ ── */
+.ticket-done {
+  background: rgba(34,201,122,.08);
+  border: 1px solid rgba(34,201,122,.3);
+  border-radius: var(--r);
+  padding: 12px 14px;
+  font-size: 12px;
+  color: var(--ok);
+}
+.ticket-done strong { font-size: 13px; }
+
+/* ── GROUP MODAL ── */
+.modal-overlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.7);
+  z-index: 300;
+  align-items: center; justify-content: center;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px;
+  width: 420px;
+  max-height: 80vh;
+  overflow-y: auto;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.modal-title {
+  font-size: 15px; font-weight: 700;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.modal-close { background: none; border: none; color: var(--muted); font-size: 20px; cursor: pointer; }
+.modal-item {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--r);
+  cursor: pointer;
+  transition: background .1s;
+}
+.modal-item:hover { background: var(--card); }
+.modal-item input[type=checkbox] { margin-top: 2px; accent-color: var(--accent); }
+.modal-item-label { font-size: 12px; line-height: 1.4; }
+.modal-item-meta { font-size: 10px; color: var(--muted); }
+.btn-modal-ok {
+  background: var(--accent); border: none; color: #000;
+  border-radius: var(--r); padding: 9px; font-size: 13px;
+  font-weight: 700; cursor: pointer; font-family: var(--font); width: 100%;
+}
+
+/* ── TOAST ── */
+#toast {
+  position: fixed; bottom: 16px; right: 16px;
+  background: var(--ok); color: #000;
+  padding: 9px 16px; border-radius: var(--r);
+  font-weight: 700; font-size: 13px;
+  opacity: 0; transform: translateY(8px);
+  transition: opacity .3s, transform .3s;
+  pointer-events: none; z-index: 999;
+}
+#toast.show { opacity: 1; transform: translateY(0); }
+#toast.error { background: var(--nok); color: #fff; }
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* ── LOADING ── */
+.loading {
+  display: flex; align-items: center; justify-content: center;
+  height: 100%; gap: 12px; color: var(--muted); font-size: 13px;
+}
+.spinner {
+  width: 20px; height: 20px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin .8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="logo">OVPF</div>
+  <div>
+    <div class="topbar-title">Analyse des pannes — F2</div>
+    <div class="topbar-sub">Dépouillement et affectation des tickets</div>
+  </div>
+  <div class="topbar-spacer"></div>
+  <span class="badge-date" id="badge-date">—</span>
+  <input type="text" id="input-depouilleur" placeholder="Votre nom…"
+    style="background:var(--card);border:1px solid var(--border);color:var(--text);
+           border-radius:var(--r);padding:5px 10px;font-size:12px;font-family:var(--font);width:130px;">
+  <button class="btn-sm" onclick="refreshData()">↺ Rafraîchir</button>
+</div>
+
+<!-- STATS BAR -->
+<div class="stats-bar">
+  <div class="stat">
+    <span class="stat-num red" id="stat-total">—</span>
+    <span style="color:var(--muted)">items NOK</span>
+  </div>
+  <div class="stat">
+    <span class="stat-num green" id="stat-done">0</span>
+    <span style="color:var(--muted)">tickets créés</span>
+  </div>
+  <div class="stat">
+    <span class="stat-num orange" id="stat-remaining">—</span>
+    <span style="color:var(--muted)">restants</span>
+  </div>
+  <div style="flex:1"></div>
+  <span style="font-size:11px;color:var(--muted)" id="stat-date">Routine du —</span>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- LISTE NOK -->
+  <div class="nok-list" id="nok-list">
+    <div class="nok-header">
+      Items NOK du jour
+      <input type="text" class="nok-search" id="nok-search" placeholder="Rechercher…" oninput="filterList()">
+    </div>
+    <div class="loading"><div class="spinner"></div> Chargement…</div>
+  </div>
+
+  <!-- PANNEAU DROIT -->
+  <div class="panel" id="panel">
+    <div class="panel-empty">
+      <div class="icon">👈</div>
+      <p>Cliquer sur un item NOK dans la liste de gauche pour créer un ticket d'intervention.</p>
+    </div>
+  </div>
+
+</div>
+
+<!-- MODAL GROUPEMENT -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeModalOutside(event)">
+  <div class="modal">
+    <div class="modal-title">
+      Grouper avec d'autres items
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <p style="font-size:12px;color:var(--muted)">Sélectionner les items NOK à inclure dans ce ticket :</p>
+    <div id="modal-list"></div>
+    <button class="btn-modal-ok" onclick="confirmGroup()">Confirmer le groupement</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ── STATE ─────────────────────────────────────────────────────────────────────
+let allRoutineRows = [];   // tous les enregistrements Grist
+let nokItems       = [];   // items NOK du jour (dédupliqués)
+let selectedItem   = null; // item NOK actuellement sélectionné
+let groupedItems   = [];   // items groupés dans le ticket en cours
+let tickets        = {};   // item_label → ticket créé { id, items_lies }
+let techniciens    = [];   // liste des techniciens (depuis table Techniciens si dispo)
+
+// Table cibles
+const TABLE_ROUTINE  = 'Routine_items_structure';
+const TABLE_TICKETS  = 'Tickets';
+const TABLE_TECH     = 'Techniciens';
+
+// ── UTILS ─────────────────────────────────────────────────────────────────────
+function today() { return new Date().toISOString().slice(0,10); }
+function fmt(d) {
+  if (!d) return '—';
+  const [y,m,j] = d.split('-');
+  return `${j}/${m}/${y}`;
+}
+function now() { return new Date().toISOString().replace('T',' ').slice(0,19); }
+
+function showToast(msg, isError=false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show' + (isError ? ' error' : '');
+  setTimeout(() => t.className = '', 3000);
+}
+
+// ── GRIST INIT ────────────────────────────────────────────────────────────────
+grist.ready({ requiredAccess: 'full' });
+
+// Chargement initial via onRecords (table liée = Routine_items_structure)
+grist.onRecords((records) => {
+  allRoutineRows = records;
+  processData();
+});
+
+async function refreshData() {
+  try {
+    const tbl = grist.getTable(TABLE_ROUTINE);
+    const records = await tbl.fetchRecords();
+    allRoutineRows = records;
+    processData();
+    showToast('Données actualisées');
+  } catch(e) {
+    showToast('Erreur actualisation : ' + e.message, true);
+  }
+}
+
+// Charger les techniciens (optionnel — dégradé si table absente)
+async function loadTechniciens() {
+  try {
+    const tbl = grist.getTable(TABLE_TECH);
+    const recs = await tbl.fetchRecords();
+    techniciens = recs.map(r => r.nom).filter(Boolean).sort();
+  } catch(e) {
+    techniciens = [];
+  }
+  // Mettre à jour le select si le panneau est ouvert
+  const sel = document.getElementById('f-technicien');
+  if (sel) buildTechSelect(sel);
+}
+
+// ── TRAITEMENT DONNÉES ────────────────────────────────────────────────────────
+function processData() {
+  const t = today();
+
+  // Normaliser dates
+  allRoutineRows.forEach(r => {
+    if (typeof r.date_routine === 'number') {
+      r.date_routine = new Date(r.date_routine * 86400000).toISOString().slice(0,10);
+    }
+  });
+
+  // Dédupliq : dernier statut connu par (date, item_label)
+  const latest = {};
+  allRoutineRows.forEach(r => {
+    const k = `${r.date_routine}__${r.item_label}`;
+    if (!latest[k] || r.heure_routine > latest[k].heure_routine) latest[k] = r;
+  });
+
+  // Items NOK du jour
+  nokItems = Object.values(latest)
+    .filter(r => r.date_routine === t && r.ok === false)
+    .sort((a,b) => (a.categorie||'').localeCompare(b.categorie||'') ||
+                   (a.item_label||'').localeCompare(b.item_label||''));
+
+  // Mettre à jour la date affichée
+  document.getElementById('badge-date').textContent = fmt(t);
+  document.getElementById('stat-date').textContent  = `Routine du ${fmt(t)}`;
+
+  updateStats();
+  renderList();
+}
+
+// ── STATS ─────────────────────────────────────────────────────────────────────
+function updateStats() {
+  const done = Object.keys(tickets).length;
+  const rem  = nokItems.filter(r => !tickets[r.item_label]).length;
+  document.getElementById('stat-total').textContent     = nokItems.length;
+  document.getElementById('stat-done').textContent      = done;
+  document.getElementById('stat-remaining').textContent = rem;
+}
+
+// ── RENDER LIST ───────────────────────────────────────────────────────────────
+function filterList() {
+  renderList(document.getElementById('nok-search').value.trim().toLowerCase());
+}
+
+function renderList(search='') {
+  const container = document.getElementById('nok-list');
+
+  if (nokItems.length === 0) {
+    container.innerHTML = `
+      <div class="nok-header">Items NOK du jour
+        <input type="text" class="nok-search" id="nok-search" placeholder="Rechercher…" oninput="filterList()">
+      </div>
+      <div style="padding:40px 20px;text-align:center;color:var(--muted);font-size:13px;">
+        ✓ Aucun item NOK aujourd'hui
+      </div>`;
+    return;
+  }
+
+  // Grouper par catégorie
+  const byCat = {};
+  nokItems.forEach(r => {
+    if (search && !r.item_label.toLowerCase().includes(search) &&
+        !(r.categorie||'').toLowerCase().includes(search)) return;
+    const cat = r.categorie || 'Divers';
+    if (!byCat[cat]) byCat[cat] = [];
+    byCat[cat].push(r);
+  });
+
+  let html = `
+    <div class="nok-header">Items NOK du jour
+      <input type="text" class="nok-search" id="nok-search"
+        placeholder="Rechercher…" oninput="filterList()"
+        value="${search}">
+    </div>`;
+
+  Object.entries(byCat).forEach(([cat, items]) => {
+    html += `<div class="cat-group"><div class="cat-label">${cat}</div>`;
+    items.forEach(r => {
+      const isDone    = !!tickets[r.item_label];
+      const isGrouped = Object.values(tickets).some(t =>
+        (t.items_lies||'').includes(r.item_label) && t.main !== r.item_label);
+      const isSel     = selectedItem && selectedItem.item_label === r.item_label;
+      const cls = [
+        'nok-item',
+        isSel ? 'selected' : '',
+        isDone ? 'done' : '',
+        isGrouped && !isDone ? 'grouped' : ''
+      ].filter(Boolean).join(' ');
+
+      const checkCls = isDone ? 'done' : isGrouped ? 'grouped' : '';
+      const checkTxt = isDone ? '✓' : isGrouped ? '↗' : '';
+      const resBadge = r.reseau === 'Mayotte'
+        ? '<span class="badge-reseau badge-mayotte">MAYOTTE</span>'
+        : '<span class="badge-reseau badge-pf">PF</span>';
+
+      html += `
+        <div class="${cls}" onclick="selectItem(${JSON.stringify(r.item_label).replace(/"/g,'&quot;')})">
+          <div class="item-check ${checkCls}">${checkTxt}</div>
+          <div class="item-body">
+            <div class="item-name">${r.item_label}</div>
+            <div class="item-meta">${r.heure_routine || ''} — Opérateur : ${r.operateur || '?'} ${resBadge}</div>
+            ${r.remarque ? `<div class="item-rem">💬 ${r.remarque}</div>` : ''}
+          </div>
+        </div>`;
+    });
+    html += `</div>`;
+  });
+
+  container.innerHTML = html;
+}
+
+// ── SÉLECTION ITEM ────────────────────────────────────────────────────────────
+function selectItem(itemLabel) {
+  selectedItem = nokItems.find(r => r.item_label === itemLabel);
+  if (!selectedItem) return;
+  groupedItems = [selectedItem];
+  renderList(document.getElementById('nok-search')?.value || '');
+  renderPanel();
+}
+
+// ── PANEL FORMULAIRE ──────────────────────────────────────────────────────────
+function buildTechSelect(sel) {
+  const opts = techniciens.length
+    ? techniciens.map(t => `<option value="${t}">${t}</option>`).join('')
+    : '<option value="">— saisir manuellement —</option>';
+  sel.innerHTML = `<option value="">Choisir un technicien…</option>${opts}`;
+}
+
+function renderPanel() {
+  if (!selectedItem) return;
+  const r = selectedItem;
+  const alreadyDone = tickets[r.item_label];
+
+  if (alreadyDone) {
+    document.getElementById('panel').innerHTML = `
+      <div class="panel-form">
+        <div class="form-title">
+          ${r.item_label}
+          <div class="item-tag">${r.categorie} — ${r.reseau} — ${fmt(r.date_routine)}</div>
+        </div>
+        <div class="ticket-done">
+          <strong>✓ Ticket créé</strong><br>
+          Diagnostic : ${alreadyDone.diagnostic || '—'}<br>
+          Technicien : ${alreadyDone.technicien_id || '—'}<br>
+          Priorité : ${alreadyDone.priorite || '—'}<br>
+          ${alreadyDone.items_lies ? `Items groupés : ${alreadyDone.items_lies}` : ''}
+        </div>
+        <div class="form-actions">
+          <button class="btn-skip" onclick="nextItem()">→ Item suivant</button>
+        </div>
+      </div>`;
+    return;
+  }
+
+  // Groupe display
+  const groupHtml = groupedItems.length > 1
+    ? groupedItems.slice(1).map(gi => `
+        <div class="group-item">
+          <span style="font-size:11px">📎 ${gi.item_label}</span>
+          <button class="group-item-remove" onclick="removeFromGroup('${gi.item_label.replace(/'/g,"\\'")}')">✕</button>
+        </div>`).join('')
+    : '';
+
+  document.getElementById('panel').innerHTML = `
+    <div class="panel-form">
+      <div class="form-title">
+        ${r.item_label}
+        <div class="item-tag">${r.categorie} — ${r.reseau} — Signalé à ${r.heure_routine||'?'} par ${r.operateur||'?'}</div>
+        ${r.remarque ? `<div class="item-tag" style="color:var(--new)">💬 ${r.remarque}</div>` : ''}
+      </div>
+
+      <!-- GROUPEMENT -->
+      <div class="group-section">
+        <div class="group-title">
+          <span>Items groupés dans ce ticket</span>
+          <button class="btn-sm" onclick="openGroupModal()">+ Ajouter</button>
+        </div>
+        <div class="group-items">
+          <div class="group-item" style="background:rgba(232,160,32,.08);border:1px solid rgba(232,160,32,.2)">
+            <span style="font-size:11px;font-weight:700">🎯 ${r.item_label}</span>
+            <span style="margin-left:auto;font-size:10px;color:var(--muted)">item principal</span>
+          </div>
+          ${groupHtml}
+        </div>
+        <button class="btn-add-group" onclick="openGroupModal()">+ Grouper avec d'autres items NOK</button>
+      </div>
+
+      <!-- DIAGNOSTIC -->
+      <div class="form-section">
+        <div class="form-section-title">Diagnostic</div>
+        <div class="form-row">
+          <div class="form-label">Description du problème constaté *</div>
+          <textarea class="form-textarea" id="f-diagnostic" placeholder="Décrire le diagnostic précis…" rows="3"></textarea>
+        </div>
+        <div class="form-row">
+          <div class="form-label">Type de travaux</div>
+          <input class="form-input" id="f-travaux" placeholder="ex: Remplacement câble, Redémarrage serveur…">
+        </div>
+      </div>
+
+      <!-- AFFECTATION -->
+      <div class="form-section">
+        <div class="form-section-title">Affectation</div>
+        <div class="form-row row2">
+          <div class="form-row">
+            <div class="form-label">Technicien assigné *</div>
+            <select class="form-select" id="f-technicien"></select>
+          </div>
+          <div class="form-row">
+            <div class="form-label">Priorité *</div>
+            <select class="form-select" id="f-priorite">
+              <option value="">Choisir…</option>
+              <option value="Haute">🔴 Haute</option>
+              <option value="Normale" selected>🟡 Normale</option>
+              <option value="Basse">🟢 Basse</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-label">URL wiki / procédure</div>
+          <input class="form-input" id="f-wiki" placeholder="https://wiki.ovpf.fr/…">
+        </div>
+        <div class="form-row">
+          <div class="form-label">Créé par (dépouilleur)</div>
+          <input class="form-input" id="f-cree-par"
+            value="${document.getElementById('input-depouilleur')?.value || ''}"
+            placeholder="Votre nom">
+        </div>
+      </div>
+
+      <!-- COMMENTAIRE -->
+      <div class="form-section">
+        <div class="form-section-title">Commentaire</div>
+        <div class="form-row">
+          <textarea class="form-textarea" id="f-commentaire"
+            placeholder="Informations complémentaires, contexte…" rows="2"></textarea>
+        </div>
+      </div>
+
+      <!-- ACTIONS -->
+      <div class="form-actions">
+        <button class="btn-create" id="btn-create" onclick="createTicket()">
+          ✓ Créer le ticket
+        </button>
+        <button class="btn-skip" onclick="nextItem()">Passer →</button>
+      </div>
+    </div>`;
+
+  // Remplir le select technicien
+  const sel = document.getElementById('f-technicien');
+  if (techniciens.length) {
+    buildTechSelect(sel);
+  } else {
+    // Pas de table Techniciens — input libre
+    sel.outerHTML = `<input class="form-input" id="f-technicien" placeholder="Nom du technicien…">`;
+  }
+}
+
+// ── GROUPEMENT ────────────────────────────────────────────────────────────────
+function openGroupModal() {
+  const available = nokItems.filter(r =>
+    r.item_label !== selectedItem.item_label &&
+    !tickets[r.item_label]
+  );
+
+  const html = available.map(r => `
+    <div class="modal-item">
+      <input type="checkbox" id="grp-${r.item_label.replace(/[^a-z0-9]/gi,'_')}"
+        value="${r.item_label.replace(/"/g,'&quot;')}"
+        ${groupedItems.find(g => g.item_label === r.item_label) ? 'checked' : ''}>
+      <label for="grp-${r.item_label.replace(/[^a-z0-9]/gi,'_')}" style="cursor:pointer;flex:1">
+        <div class="modal-item-label">${r.item_label}</div>
+        <div class="modal-item-meta">${r.categorie} — ${r.reseau}</div>
+      </label>
+    </div>`).join('');
+
+  document.getElementById('modal-list').innerHTML = html ||
+    '<p style="color:var(--muted);font-size:12px">Aucun autre item NOK disponible.</p>';
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('open');
+}
+
+function closeModalOutside(e) {
+  if (e.target === document.getElementById('modal-overlay')) closeModal();
+}
+
+function confirmGroup() {
+  const checked = document.querySelectorAll('#modal-list input[type=checkbox]:checked');
+  const labels  = Array.from(checked).map(c => c.value);
+  groupedItems  = [selectedItem, ...nokItems.filter(r => labels.includes(r.item_label))];
+  closeModal();
+  renderPanel();
+}
+
+function removeFromGroup(itemLabel) {
+  groupedItems = groupedItems.filter(r => r.item_label !== itemLabel);
+  renderPanel();
+}
+
+// ── CRÉER TICKET ──────────────────────────────────────────────────────────────
+async function createTicket() {
+  const diagnostic = document.getElementById('f-diagnostic')?.value.trim();
+  const technicien = document.getElementById('f-technicien')?.value.trim();
+  const priorite   = document.getElementById('f-priorite')?.value;
+  const travaux    = document.getElementById('f-travaux')?.value.trim();
+  const wiki       = document.getElementById('f-wiki')?.value.trim();
+  const cree_par   = document.getElementById('f-cree-par')?.value.trim() ||
+                     document.getElementById('input-depouilleur')?.value.trim() || '';
+  const commentaire= document.getElementById('f-commentaire')?.value.trim();
+
+  if (!diagnostic) { showToast('Le diagnostic est obligatoire', true); return; }
+  if (!technicien) { showToast('Assignez un technicien', true); return; }
+  if (!priorite)   { showToast('Choisissez une priorité', true); return; }
+
+  const btn = document.getElementById('btn-create');
+  btn.disabled = true;
+  btn.textContent = 'Création…';
+
+  const r = selectedItem;
+  const items_lies = groupedItems
+    .filter(g => g.item_label !== r.item_label)
+    .map(g => g.item_label)
+    .join(' | ');
+
+  const record = {
+    fields: {
+      date_creation:   now(),
+      origine:         'Routine',
+      item_label:      r.item_label,
+      categorie:       r.categorie || '',
+      date_routine:    r.date_routine || today(),
+      reseau:          r.reseau || '',
+      statut:          'Ouvert',
+      priorite:        priorite,
+      diagnostic:      diagnostic,
+      type_travaux:    travaux || '',
+      technicien_id:   technicien,
+      cree_par:        cree_par,
+      url_wiki:        wiki || '',
+      items_lies:      items_lies,
+      commentaires:    commentaire
+        ? `[${cree_par} - ${now()}] ${commentaire}`
+        : '',
+      depouillement_par: cree_par,
+      depouillement_date: now(),
+    }
+  };
+
+  try {
+    const tbl = grist.getTable(TABLE_TICKETS);
+    await tbl.create([record]);
+
+    // Marquer comme traités
+    const ticketData = {
+      diagnostic, technicien_id: technicien, priorite,
+      items_lies, main: r.item_label
+    };
+    tickets[r.item_label] = ticketData;
+    groupedItems.forEach(g => {
+      if (g.item_label !== r.item_label) tickets[g.item_label] = { ...ticketData, grouped: true };
+    });
+
+    showToast('✓ Ticket créé avec succès');
+    updateStats();
+    renderList(document.getElementById('nok-search')?.value || '');
+    renderPanel();
+
+    // Auto-sélection item suivant
+    setTimeout(() => nextItem(), 800);
+
+  } catch(e) {
+    showToast('Erreur création ticket : ' + e.message, true);
+    btn.disabled = false;
+    btn.textContent = '✓ Créer le ticket';
+  }
+}
+
+// ── NAVIGATION ────────────────────────────────────────────────────────────────
+function nextItem() {
+  const remaining = nokItems.filter(r => !tickets[r.item_label]);
+  if (remaining.length === 0) {
+    document.getElementById('panel').innerHTML = `
+      <div class="panel-empty">
+        <div class="icon">🎉</div>
+        <p>Tous les items NOK ont été traités !<br>
+        <strong style="color:var(--ok)">${Object.keys(tickets).length} tickets créés.</strong></p>
+      </div>`;
+    selectedItem = null;
+    renderList();
+    return;
+  }
+  // Sélectionner le premier non traité
+  selectItem(remaining[0].item_label);
+}
+
+// ── INIT ─────────────────────────────────────────────────────────────────────
+loadTechniciens();
+
+// Pré-remplir dépouilleur depuis URL ?depouilleur=NOM
+const urlParams = new URLSearchParams(window.location.search);
+const depParam  = urlParams.get('depouilleur');
+if (depParam) document.getElementById('input-depouilleur').value = depParam;
+</script>
+</body>
+</html>
