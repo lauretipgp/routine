@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Test getAccessToken</title>
+<script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+<style>
+body { font-family: monospace; background: #0d1b2a; color: #c8dff2; padding: 20px; }
+.ok  { color: #22c97a; font-weight: bold; }
+.err { color: #e84545; font-weight: bold; }
+.info{ color: #5f8aad; }
+pre  { background: #112840; padding: 12px; border-radius: 6px; white-space: pre-wrap; word-break: break-all; font-size: 12px; color: #6aafad; margin-top: 8px; }
+button { background: #e8a020; border: none; color: #000; padding: 8px 18px; border-radius: 4px; cursor: pointer; font-family: monospace; font-weight: bold; margin: 4px 0; }
+</style>
+</head>
+<body>
+
+<h2 style="color:#e8a020">Test getAccessToken — Dashboard OVPF</h2>
+<p class="info">Ce widget teste l'accès à l'API Grist via getAccessToken() depuis un Custom Widget.</p>
+
+<button onclick="runTest()">▶ Lancer le test</button>
+
+<div id="step1" style="margin-top:16px"></div>
+<div id="step2"></div>
+<div id="step3"></div>
+<div id="step4"></div>
+
+<script>
+grist.ready({ requiredAccess: 'read table' });
+
+async function runTest() {
+  // ── ÉTAPE 1 : getAccessToken ────────────────────────────────────────────
+  document.getElementById('step1').innerHTML = '<span class="info">Étape 1 — getAccessToken()...</span>';
+  let tokenInfo;
+  try {
+    tokenInfo = await grist.docApi.getAccessToken({ readOnly: true });
+    document.getElementById('step1').innerHTML =
+      `<span class="ok">✓ Étape 1 — Token obtenu</span><pre>${JSON.stringify(tokenInfo, null, 2)}</pre>`;
+  } catch(e) {
+    document.getElementById('step1').innerHTML =
+      `<span class="err">✗ Étape 1 — getAccessToken échoué : ${e.message}</span>`;
+    return;
+  }
+
+  // ── ÉTAPE 2 : construire l'URL ──────────────────────────────────────────
+  const table = 'Routine_items_structure';
+  const url = `${tokenInfo.baseUrl}/tables/${table}/records?auth=${tokenInfo.token}`;
+  document.getElementById('step2').innerHTML =
+    `<span class="info">Étape 2 — URL construite :</span><pre>${url}</pre>`;
+
+  // ── ÉTAPE 3 : appel API ─────────────────────────────────────────────────
+  document.getElementById('step3').innerHTML = '<span class="info">Étape 3 — fetch en cours...</span>';
+  let data;
+  try {
+    const resp = await fetch(url, {
+      method: 'GET',
+      headers: { 'X-Requested-With': 'XMLHttpRequest' },
+    });
+    data = await resp.json();
+    if (!resp.ok) throw new Error(`HTTP ${resp.status} — ${JSON.stringify(data)}`);
+    document.getElementById('step3').innerHTML =
+      `<span class="ok">✓ Étape 3 — ${data.records.length} enregistrements reçus</span>`;
+  } catch(e) {
+    document.getElementById('step3').innerHTML =
+      `<span class="err">✗ Étape 3 — fetch échoué : ${e.message}</span>`;
+    return;
+  }
+
+  // ── ÉTAPE 4 : afficher un aperçu ────────────────────────────────────────
+  const sample = data.records.slice(0, 3).map(r => r.fields);
+  document.getElementById('step4').innerHTML =
+    `<span class="ok">✓ Étape 4 — Aperçu des 3 premiers enregistrements :</span>
+     <pre>${JSON.stringify(sample, null, 2)}</pre>`;
+}
+</script>
+</body>
+</html>
