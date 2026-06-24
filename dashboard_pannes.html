@@ -547,15 +547,6 @@ function saveConfig() {
   localStorage.setItem(CFG_KEY, JSON.stringify(cfg));
   closeConfig();
   showToast('Configuration enregistrée');
-  // ── INITIALISATION GRIST ──────────────────────────────────────────────────
-// grist.ready() avec callback — loadData() appelé APRÈS que Grist accorde l'accès
-grist.ready({
-  requiredAccess: 'full',
-  onReady() {
-    console.log('grist.onReady — accès accordé, chargement des données');
-    loadData();
-  }
-});
 }
 
 // ─── STATE ───────────────────────────────────────────────────────────────────
@@ -576,33 +567,31 @@ setInterval(updateClock, 1000);
 updateClock();
 
 // ─── API GRIST ───────────────────────────────────────────────────────────────
-async function fetchGrist() {
-  // Utilise getAccessToken() — API native Custom Widget Grist
-  // Fonctionne depuis GitHub Pages dans une iframe Grist (Full document access requis)
-  const table = cfg.table || 'Routine_items_structure';
-
-  // Obtenir un token JWT temporaire (valide 15 min)
-  const tokenInfo = await grist.docApi.getAccessToken({ readOnly: true });
-  console.log('Token OK, baseUrl:', tokenInfo.baseUrl);
-
-  const url = `${tokenInfo.baseUrl}/tables/${encodeURIComponent(table)}/records?auth=${tokenInfo.token}`;
-  console.log('Fetching URL:', url.split('?')[0]);
-  const resp = await fetch(url, {
-    method: 'GET',
-    headers: { 'X-Requested-With': 'XMLHttpRequest' },
-  });
-  if (!resp.ok) {
-    const err = await resp.json().catch(() => ({}));
-    throw new Error(`HTTP ${resp.status}${err.error ? ' — ' + err.error : ''}`);
+// ─── LOAD ─────────────────────────────────────────────────────────────────────
+function processRecords(records) {
+  // Appelé directement par grist.onRecords() avec les enregistrements Grist
+  // Format : tableau d'objets avec les champs de la table
+  console.log('processRecords() — ' + records.length + ' enregistrements');
+  try {
+    // Normaliser les dates (Grist peut retourner des timestamps)
+    records.forEach(r => {
+      if (typeof r.date_routine === 'number') {
+        const d = new Date(r.date_routine * 24 * 60 * 60 * 1000);
+        r.date_routine = d.toISOString().slice(0,10);
+      }
+    });
+    allRows = records;
+    computeKPIs();
+    applyFilters();
+  } catch(err) {
+    console.error(err);
+    document.getElementById('table-wrap').innerHTML =
+      `<div class="empty-state"><div class="icon">⚠</div><p>${err.message}</p></div>`;
+    updateKPIs(null);
   }
-  const data = await resp.json();
-  if (data.error) throw new Error(data.error);
-  return data.records.map(r => ({ id: r.id, ...r.fields }));
 }
 
-// ─── LOAD ─────────────────────────────────────────────────────────────────────
-async function loadData() {
-  console.log('loadData() called');
+async function loadDataLegacy() {
   document.getElementById('table-wrap').innerHTML =
     '<div class="loading"><div class="spinner"></div> Chargement des données…</div>';
 
@@ -960,6 +949,25 @@ const s = new Date(); s.setDate(s.getDate() - 30);
 document.getElementById('cf-date-start').value = s.toISOString().slice(0,10);
 
 // Auto-load if config exists
+// ── INITIALISATION GRIST (top level) ────────────────────────────────────────
+grist.ready({ requiredAccess: 'read table' });
+
+// Méthode 1 : onRecords (push automatique quand table liée au widget)
+grist.onRecords((records) => { processRecords(records); });
+
+// Méthode 2 : fetchRecords via grist.getTable() — déclenché au clic ↺
+async function loadData() {
+  document.getElementById('table-wrap').innerHTML =
+    '<div class="loading"><div class="spinner"></div> Chargement des données…</div>';
+  try {
+    const table = grist.getTable('Routine_items_structure');
+    const records = await table.fetchRecords();
+    processRecords(records);
+  } catch(err) {
+    document.getElementById('table-wrap').innerHTML =
+      `<div class="empty-state"><div class="icon">⚠</div><p>${err.message}</p></div>`;
+  }
+}
 </script>
 </body>
 </html>
