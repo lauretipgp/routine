@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>OVPF — Tableau de bord des pannes</title>
+<title>OVPF — Tableau de bord des pannessssssssss</title>
 <style>
 /* ── TOKENS ── */
 :root {
@@ -547,22 +547,23 @@ function saveConfig() {
   closeConfig();
   showToast('Configuration enregistrée');
   // ── INITIALISATION GRIST ──────────────────────────────────────────────────
-// grist.ready() DOIT être appelé au top level immédiatement (comme le widget ANCT)
+// grist.ready() au top level — callback onReady déclenche loadData
 grist.ready({
   requiredAccess: 'full',
   onEditOptions: () => openConfig(),
-});
-
-// Déclencher le chargement une seule fois via onRecords
-let _loaded = false;
-grist.onRecords((records) => {
-  console.log('onRecords fired, _loaded=', _loaded, 'records=', records ? records.length : 0);
-  if (!_loaded) {
-    _loaded = true;
-    console.log('Triggering loadData()');
+  onReady: () => {
+    console.log('grist.onReady fired');
     loadData();
   }
 });
+
+// Fallback : si onReady ne se déclenche pas, appel direct après 2s
+setTimeout(() => {
+  if (allRows.length === 0) {
+    console.log('Fallback loadData via setTimeout');
+    loadData();
+  }
+}, 2000);
 }
 
 // ─── STATE ───────────────────────────────────────────────────────────────────
