@@ -406,17 +406,81 @@ body {
 <!-- SPLIT -->
 <div class="split" id="split-view">
 
-  <!-- LEFT -->
-  <div class="left-panel" id="left-panel">
+  <!-- TEMPLATE panneau gauche (restauré après page de transition) -->
+  <template id="item-panel-tpl">
     <div class="item-cat" id="item-cat"></div>
     <div class="item-label-text" id="item-label"></div>
-
-    <div class="toggle-row">
+    <div id="item-note" style="display:none;background:rgba(232,160,32,.08);
+      border-left:3px solid var(--accent);padding:8px 12px;font-size:12px;
+      color:#a08040;border-radius:0 4px 4px 0;margin-bottom:12px;line-height:1.5"></div>
+    <div id="toggle-wrap" class="toggle-row">
       <label class="toggle">
         <input type="checkbox" id="toggle-ok">
         <span class="toggle-slider"></span>
       </label>
       <span class="toggle-label" id="toggle-lbl">NOK</span>
+    </div>
+    <div id="num-wrap" style="display:none;margin-bottom:12px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <input type="number" id="valeur-num" step="any"
+          style="background:var(--card);border:2px solid var(--border);color:var(--text);
+                 border-radius:6px;padding:10px 14px;font-size:22px;font-weight:700;
+                 font-family:var(--mono);width:160px;text-align:center">
+        <span id="valeur-unite" style="font-size:18px;color:var(--muted);font-weight:600"></span>
+      </div>
+    </div>
+    <div id="txt-wrap" style="display:none;margin-bottom:12px">
+      <input type="text" id="valeur-txt"
+        style="background:var(--card);border:2px solid var(--border);color:var(--text);
+               border-radius:6px;padding:10px 14px;font-size:16px;font-family:var(--font);width:100%"
+        placeholder="Saisir la valeur…">
+    </div>
+    <textarea class="remarque-input" id="remarque" rows="3" placeholder="Remarque (optionnelle)…"></textarea>
+    <a class="link-btn" id="link-btn" href="#" target="_blank">
+      <span class="icon">↗</span> Ouvrir la vérification
+    </a>
+    <div class="nav-row">
+      <button class="btn btn-prev" id="btn-prev" onclick="navigate(-1)">← Précédent</button>
+      <button class="btn btn-next" id="btn-next" onclick="navigate(1)">Suivant →</button>
+    </div>
+  </template>
+
+  <!-- LEFT -->
+  <div class="left-panel" id="left-panel">
+    <div class="item-cat" id="item-cat"></div>
+    <div class="item-label-text" id="item-label"></div>
+
+    <!-- Note d'aide contextuelle depuis Routine_items_catalogue -->
+    <div id="item-note" style="display:none;background:rgba(232,160,32,.08);
+      border-left:3px solid var(--accent);padding:8px 12px;font-size:12px;
+      color:#a08040;border-radius:0 4px 4px 0;margin-bottom:12px;line-height:1.5"></div>
+
+    <!-- OK/NOK (type_valeur = OK/NOK) -->
+    <div id="toggle-wrap" class="toggle-row">
+      <label class="toggle">
+        <input type="checkbox" id="toggle-ok">
+        <span class="toggle-slider"></span>
+      </label>
+      <span class="toggle-label" id="toggle-lbl">NOK</span>
+    </div>
+
+    <!-- Numérique (type_valeur = Numérique) -->
+    <div id="num-wrap" style="display:none;margin-bottom:12px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <input type="number" id="valeur-num" step="any"
+          style="background:var(--card);border:2px solid var(--border);color:var(--text);
+                 border-radius:6px;padding:10px 14px;font-size:22px;font-weight:700;
+                 font-family:var(--mono);width:160px;text-align:center">
+        <span id="valeur-unite" style="font-size:18px;color:var(--muted);font-weight:600"></span>
+      </div>
+    </div>
+
+    <!-- Texte libre (type_valeur = Texte libre) -->
+    <div id="txt-wrap" style="display:none;margin-bottom:12px">
+      <input type="text" id="valeur-txt"
+        style="background:var(--card);border:2px solid var(--border);color:var(--text);
+               border-radius:6px;padding:10px 14px;font-size:16px;font-family:var(--font);width:100%"
+        placeholder="Saisir la valeur…">
     </div>
 
     <textarea class="remarque-input" id="remarque" rows="3" placeholder="Remarque (optionnelle)…"></textarea>
@@ -479,97 +543,121 @@ const yesterday = () => {
   return `${String(d.getDate()).padStart(2,'0')}-${String(d.getMonth()+1).padStart(2,'0')}-${d.getFullYear()}`;
 };
 
-const ITEMS = [
-  // Sefran et bulletin
-  {cat:'Sefran et bulletin',label:'Dépouillement Sefran PF et envoi du bulletin',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/cgi-bin/sefran3.pl?header=1'},
-  {cat:'Sefran et bulletin',label:'Dépouillement Sefran Mayotte et envoi du bulletin',reseau:'Mayotte',url:'https://webobs.ovpf.ipgp.fr/php/sgram-revosima/SGRAM_LF2/index.html'},
-  {cat:'Sefran et bulletin',label:"Liste d'appel",reseau:'PF',url:'http://195.83.188.10:6001/'},
-  // Alarme
-  {cat:'Alarme anti-intrusion',label:'État alarme anti-intrusion',reseau:'PF',url:'http://195.83.188.219/keypad.cgi'},
-  // Caméras
-  {cat:'Caméras',label:'CratèreBory (CBOC)',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/php/cameras/camera.php?camera=Bory&format=axis'},
-  {cat:'Caméras',label:'Piton des Basaltes (BASC)',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/php/cameras/camera.php?camera=Basalte&format=axis'},
-  {cat:'Caméras',label:'Cratère Fontaine (CFNC)',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/php/cameras/camera.php?camera=CFNC&format=axis'},
-  {cat:'Caméras',label:'Piton de Partage (PARC)',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/php/cameras/camera.php?camera=PARC&format=axis'},
-  {cat:'Caméras',label:'Enclos (ENCC)',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/php/cameras/camera.php?camera=ENCC&format=axis'},
-  {cat:'Caméras',label:'Piton de Bert (BERC)',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/php/cameras/camera.php?camera=Bert&format=axis'},
-  {cat:'Caméras',label:'Piton des Cascades (CASC)',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/php/cameras/camera.php?camera=Cascades&format=axis'},
-  {cat:'Caméras',label:'Piton de Bert IRT (BERT1)',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/php/cameras/camera.php?camera=BERT1&format=axis'},
-  {cat:'Caméras',label:'Piton de Bert IRT (BERT2)',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/php/cameras/camera.php?camera=BERT2&format=axis'},
-  {cat:'Caméras',label:'Piton de Bert IRT (BERT3)',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/php/cameras/camera.php?camera=BERT3&format=axis'},
-  {cat:'Caméras',label:'Piton de Bert IRT (BERT4)',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/php/cameras/camera.php?camera=BERT4&format=axis'},
-  {cat:'Caméras',label:'Cratère Dolomieu Est (DOEC)',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/php/cameras/camera.php?camera=DOEC&format=axis'},
-  {cat:'Caméras',label:'Hubert Delisle (HDLC)',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/php/cameras/camera.php?camera=HDLC1&format=axis'},
-  {cat:'Caméras',label:"Caméras à l'heure (synchro)",reseau:'PF',url:'https://www.ipgp.fr/volcanoweb/reunion/html_static_webcam/cameras-ovpf.html'},
-  // RSAM
-  {cat:'Alarme sismique RSAM',label:'BOR.EHZ — seuil 0.8',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/php/images/sismo/RSAM2/BOR_1440.png'},
-  {cat:'Alarme sismique RSAM',label:'CSS.HHZ — seuil 0.8',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/php/images/sismo/RSAM2/CSS_1440.png'},
-  {cat:'Alarme sismique RSAM',label:'FJS.HHZ — seuil 0.8',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/php/images/sismo/RSAM2/FJS_1440.png'},
-  {cat:'Alarme sismique RSAM',label:'CRA.HHZ — seuil 0.8',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/php/images/sismo/RSAM2/CRA_1440.png'},
-  {cat:'Alarme sismique RSAM',label:'FOR.HHZ — seuil 0.8',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/php/images/sismo/RSAM2/FOR_1440.png'},
-  {cat:'Alarme sismique RSAM',label:'GPS.HHZ — seuil 0.8',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/php/images/sismo/RSAM2/GPS_1440.png'},
-  {cat:'Alarme sismique RSAM',label:'HIM.HHZ — seuil 0.8',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/php/images/sismo/RSAM2/HIM_1440.png'},
-  {cat:'Alarme sismique RSAM',label:'BLE.EHZ — seuil 0.8',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/php/images/sismo/RSAM2/BLE_1440.png'},
-  {cat:'Alarme sismique RSAM',label:'HDL.HHZ — seuil 0.8',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/php/images/sismo/RSAM2/HDL_1440.png'},
-  {cat:'Alarme sismique RSAM',label:'DSO.HHZ — seuil 0.8',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/php/images/sismo/RSAM2/DSO_1440.png'},
-  {cat:'Alarme sismique RSAM',label:'RVA.HHZ — seuil 0.8',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/php/images/sismo/RSAM2/RVA_1440.png'},
-  {cat:'Alarme sismique RSAM',label:'PVD.HHZ — seuil 0.8',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/php/images/sismo/RSAM2/PVD_1440.png'},
-  {cat:'Alarme sismique RSAM',label:'PRA.HHZ — seuil 0.8',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/php/images/sismo/RSAM2/PRA_1440.png'},
-  {cat:'Alarme sismique RSAM',label:'TKR.EHZ — seuil 0.8',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/php/images/sismo/RSAM2/TKR_1440.png'},
-  // EW Songe
-  {cat:'Alarme sismique EW Songe',label:"Test de l'alarme EW Songe",reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/php/alarme/index.php?ovpf=1'},
-  // Graphes
-  {cat:'Graphes',label:'SefraN à jour',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/cgi-bin/sefran3.pl?header=1'},
-  {cat:'Graphes',label:'Graphes RSAM à jour',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/php/sismo/affich_rsam_rt_sorted.php?duration=120'},
-  {cat:'Graphes',label:'Jerk RER à jour',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/cgi-bin/showOUTG.pl?grid=PROC.JERKRER&ts=05d&g=rsbrer0'},
-  {cat:'Graphes',label:'CovSeisNet temps réel',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/php/sismo/covseisnet/CovSeisNet.html'},
-  {cat:'Graphes',label:'RSAM source map',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/cgi-bin/showOUTG.pl?grid=PROC.RSAM_PF&refresh=3600&header=&ts=01h&g=SOURCEMAP'},
-  {cat:'Graphes',label:'Graphes NOVAC à jour',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/cgi-bin/showOUTG.pl?grid=PROC.NOVACPF&refresh=3600&header=&ts=01w&g=col'},
-  {cat:'Graphes',label:'Graphes CO2 à jour',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/cgi-bin/showOUTG.pl?grid=PROC.GEOCHEM_CODEUX&refresh=3600&header=&ts=01w&g=col'},
-  {cat:'Graphes',label:'Graphes Multigaz à jour',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/php/geochimie/multigas.php?days=7j'},
-  {cat:'Graphes',label:'Graphes UDMN à jour',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/cgi-bin/showOUTG.pl?grid=PROC.GEOCHEM_CODEUX_REVOSIMA&refresh=3600&header=&ts=01w&g=macsudmn'},
-  // GNSS
-  {cat:'GNSS',label:'Cartes GNSS GIPSY à jour',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/cgi-bin/showOUTG.pl?grid=PROC.GIPSYX&ts=60d&g=MODELLING_pCDM'},
-  {cat:'GNSS',label:'Status GIPSY (sauf GBNG)',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/cgi-bin/showOUTG.pl?grid=PROC.GIPSYXREVOSIMA&refresh=3600&header=&ts=03m&g=SUMMARY'},
-  {cat:'GNSS',label:'Graphes GNSS GipsyX Mayotte à jour',reseau:'Mayotte',url:'https://webobs.ovpf.ipgp.fr/cgi-bin/showOUTG.pl?grid=PROC.GIPSYXREVOSIMA&refresh=3600&header=&ts=03m&g=SUMMARY'},
-  {cat:'GNSS',label:'Status GipsyX Mayotte',reseau:'Mayotte',url:'https://webobs.ovpf.ipgp.fr/cgi-bin/showGRID.pl?grid=PROC.GIPSYXREVOSIMA#SPECS'},
-  // Déformation
-  {cat:'Déformation',label:'Graphes inclinomètres à jour',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/php/inclino/vecteurs.php'},
-  {cat:'Déformation',label:'Graphes extensomètres à jour',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/cgi-bin/showOUTG.pl?grid=PROC.EXTENSO&refresh=3600&header=&ts=02w&g=col'},
-  // Météo
-  {cat:'Météo / Pluvio',label:'Graphes pluviomètres à jour',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/cgi-bin/showOUTG.pl?grid=PROC.PLUVIO&refresh=3600&header=&ts=07d&g=col'},
-  {cat:'Météo / Pluvio',label:'Pluvio GPNW',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/cgi-bin/showOUTG.pl?grid=PROC.PLUVIO_GPNW&refresh=3600&header=&ts=07d&g=col'},
-  {cat:'Météo / Pluvio',label:'Météo CFNW',reseau:'PF',url:'https://webobs.ovpf.ipgp.fr/cgi-bin/showOUTG.pl?grid=PROC.MTO_OVPF&refresh=3600&header=&ts=07d&g=rmmcfnw'},
-  // Sismique qualité (URLs dynamiques J-1)
-  {cat:'Sismique qualité',label:'Qualité des données sismiques',reseau:'PF',url:()=>`https://webobs.ovpf.ipgp.fr/php/qc/index_qc4.php?qc_category=RSAM&station=ALL&date=${yesterday()}`},
-  {cat:'Sismique qualité',label:'Composantes continues sismo analogiques',reseau:'PF',url:()=>`https://webobs.ovpf.ipgp.fr/php/qc/index_qc4.php?qc_category=ValeursMoyennes&station=ALL&date=${yesterday()}`},
-  // Réseau
-  {cat:'Réseau général',label:'Réseau informatique',reseau:'PF',url:'http://172.16.100.17/nagios/cgi-bin/status.cgi?hostgroup=routine&style=hostdetail'},
-  {cat:'Réseau général',label:"Programmes d'acquisition",reseau:'PF',url:'http://172.16.100.17/nagios/cgi-bin/status.cgi?servicegroup=acquisitions&style=detail'},
-  {cat:'Réseau général',label:'Acquisition radex version 8.2.2',reseau:'PF',url:''},
-  // Onduleur
-  {cat:'Onduleur',label:'Taux de charge utilisation (%)',reseau:'PF',url:'http://195.83.188.242/'},
-  {cat:'Onduleur',label:'Capacité batterie (%)',reseau:'PF',url:'http://195.83.188.242/'},
-  // Groupe élec
-  {cat:'Groupe électrogène',label:'Mode de fonctionnement',reseau:'PF',url:'http://10.10.1.252/cgi-bin/testL3B.py'},
-  {cat:'Groupe électrogène',label:'Mesure batterie (V)',reseau:'PF',url:'http://10.10.1.252/cgi-bin/testL3B.py'},
-  {cat:'Groupe électrogène',label:'Réserve cuve interne gasoil (%)',reseau:'PF',url:'http://10.10.1.252/cgi-bin/testL3B.py'},
-  {cat:'Groupe électrogène',label:'Compteur horaire total',reseau:'PF',url:'http://10.10.1.252/cgi-bin/testL3B.py'},
-  {cat:'Groupe électrogène',label:'Lecture vumètre grande cuve gasoil (litres)',reseau:'PF',url:'http://10.10.1.252/cgi-bin/testL3B.py'},
-  // Divers
-  {cat:'Divers',label:"Compléter le registre d'astreinte",reseau:'PF',url:''},
-  {cat:'Divers',label:'Défibrillateur (début de semaine)',reseau:'PF',url:''},
-  {cat:'Divers',label:'Renvoi GSM Astreinte',reseau:'PF',url:''},
-  {cat:'Divers',label:'Bulletin OVPF à Paris',reseau:'PF',url:'https://www.ipgp.fr/volcanoweb/reunion/Bulletin_quotidien/bulletin.html'},
-  {cat:'Divers',label:'Bulletin Revosima à Paris',reseau:'Mayotte',url:'https://www.ipgp.fr/volcanoweb/mayotte/Bulletin_quotidien/bulletin.html'},
-];
+// ITEMS chargés dynamiquement depuis Routine_items_catalogue via loadCatalogue()
 
 // ─── STATE ───────────────────────────────────────────────────────────────────
-const state = ITEMS.map(() => ({ ok: false, remarque: '' }));
 let current = 0;
 
 // ─── GRIST ───────────────────────────────────────────────────────────────────
+// F1 lit dynamiquement la structure depuis la table Routine_items_catalogue
+// Ajouter/modifier/désactiver un item = modification dans Grist uniquement, sans toucher ce fichier
+
+const TABLE_CATALOGUE  = 'Routine_items_catalogue';
+const TABLE_CATEGORIES = 'Routine_categories';
+const TABLE_ROUTINE    = 'Routine_items_structure';
+
+let ITEMS      = [];   // items chargés depuis Routine_items_catalogue
+let CATEGORIES = {};   // { nomCat: { icone, description, conseil, url_reference } }
+let state      = [];   // [{ ok, remarque, valeur }]
+let NAV        = [];   // séquence de navigation : [{type:'transition'|'item', ...}]
+let navIdx     = 0;    // position dans NAV
+
+// Déterminer si on est lundi (pour les items hebdomadaires)
+function isLundi() { return new Date().getDay() === 1; }
+
+// Résoudre une URL dynamique
+function resolveUrl(url) {
+  if (!url) return '';
+  if (url === 'DYNAMIC:qc_rsam') {
+    const d = new Date(); d.setDate(d.getDate() - 1);
+    return `https://webobs.ovpf.ipgp.fr/php/qc/index_qc4.php?qc_category=RSAM&station=ALL&date=${d.toISOString().slice(0,10)}`;
+  }
+  if (url === 'DYNAMIC:qc_valeurs') {
+    const d = new Date(); d.setDate(d.getDate() - 1);
+    return `https://webobs.ovpf.ipgp.fr/php/qc/index_qc4.php?qc_category=ValeursMoyennes&station=ALL&date=${d.toISOString().slice(0,10)}`;
+  }
+  return url;
+}
+
 grist.ready({ requiredAccess: 'full' });
+
+// Charger catégories + catalogue depuis Grist, construire la séquence NAV
+async function loadCatalogue() {
+  try {
+    // 1. Charger les catégories (dégradé si table absente)
+    try {
+      const catRecs = await grist.getTable(TABLE_CATEGORIES).fetchRecords();
+      catRecs.forEach(r => {
+        CATEGORIES[r.nom] = {
+          icone:         r.icone || '📋',
+          description:   r.description || '',
+          conseil:       r.conseil || '',
+          url_reference: r.url_reference || '',
+        };
+      });
+    } catch(e) {
+      console.warn('Routine_categories non trouvée — transitions désactivées');
+    }
+
+    // 2. Charger les items
+    const recs  = await grist.getTable(TABLE_CATALOGUE).fetchRecords();
+    const lundi = isLundi();
+
+    ITEMS = recs
+      .filter(r => r.actif !== false)
+      .filter(r => {
+        const freq = r.frequence || 'Quotidien';
+        if (freq === 'Hebdomadaire') return lundi;
+        if (freq === 'Mensuel')      return new Date().getDate() === 1;
+        return true;
+      })
+      .sort((a, b) => (a.ordre || 0) - (b.ordre || 0))
+      .map(r => ({
+        cat:      r.categorie || '',
+        label:    r.item_label || '',
+        reseau:   r.reseau || 'PF',
+        url:      r.url_verification || '',
+        type:     r.type_valeur || 'OK/NOK',
+        unite:    r.unite || '',
+        note:     r.note_aide || '',
+        frequence:r.frequence || 'Quotidien',
+      }));
+
+    state = ITEMS.map(() => ({ ok: false, remarque: '', valeur: '' }));
+
+    // 3. Construire NAV : transition avant chaque nouveau groupe de catégorie
+    NAV = [];
+    let lastCat = null;
+    ITEMS.forEach((item, i) => {
+      if (item.cat !== lastCat) {
+        NAV.push({
+          type: 'transition',
+          cat:  item.cat,
+          info: CATEGORIES[item.cat] || { icone:'📋', description:'', conseil:'', url_reference:'' },
+          firstItemIdx: i,
+        });
+        lastCat = item.cat;
+      }
+      NAV.push({ type: 'item', itemIdx: i });
+    });
+
+    navIdx = 0;
+    init();
+
+  } catch(err) {
+    document.getElementById('split-view').innerHTML = `
+      <div style="padding:40px;color:#e84545;font-size:14px;text-align:center">
+        <div style="font-size:36px;margin-bottom:12px">⚠</div>
+        <strong>Impossible de charger le catalogue des items</strong><br>
+        <span style="color:#4f7a9a;font-size:12px;margin-top:8px;display:block">
+          Vérifier que la table <em>Routine_items_catalogue</em> existe dans Grist
+          et que le widget a accès <em>Full document access</em>.
+        </span>
+        <span style="color:#4f7a9a;font-size:11px;margin-top:6px;display:block">${err.message}</span>
+      </div>`;
+  }
+}
+
 (function() {
   const p = new URLSearchParams(window.location.search);
   if (p.get('operateur')) document.getElementById('operateur').value = p.get('operateur');
@@ -582,7 +670,91 @@ function init() {
     now.toLocaleDateString('fr-FR', { weekday:'long', day:'2-digit', month:'long', year:'numeric' });
   document.getElementById('date-routine').value = now.toISOString().slice(0,10);
   document.getElementById('heure-routine').value = now.toTimeString().slice(0,5);
-  showItem(0);
+  // Démarrer par la première entrée NAV (transition ou item)
+  navIdx = 0;
+  if (NAV.length > 0) {
+    const first = NAV[0];
+    if (first.type === 'transition') showTransition(first);
+    else showItem(first.itemIdx);
+  }
+}
+
+// ─── NAVIGATION PAR NAV ─────────────────────────────────────────────────────
+function navigate(dir) {
+  saveCurrentState();
+  const next = navIdx + dir;
+  if (next < 0) return;
+  if (next >= NAV.length) { showRecap(); return; }
+  navIdx = next;
+  const entry = NAV[navIdx];
+  if (entry.type === 'transition') showTransition(entry);
+  else showItem(entry.itemIdx);
+}
+
+// ─── PAGE DE TRANSITION ──────────────────────────────────────────────────────
+function showTransition(entry) {
+  const info     = entry.info;
+  const catItems = ITEMS.filter(it => it.cat === entry.cat);
+  const total    = catItems.length;
+
+  document.getElementById('split-view').style.display = 'flex';
+  document.getElementById('recap-screen').classList.remove('active');
+
+  // Masquer l'iframe droite — remplacer par panneau de transition pleine largeur
+  const left  = document.getElementById('left-panel');
+  const right = document.getElementById('right-panel');
+  if (right) right.style.display = 'none';
+  if (left)  left.style.flex = '1';
+
+  const url  = info.url_reference;
+  const progressItems = ITEMS.filter(it => it.cat !== entry.cat).length;
+  const done = state.filter((s, i) => ITEMS[i] && ITEMS[i].cat !== entry.cat && s.ok !== undefined).length;
+
+  left.innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:20px;padding:24px;height:100%;justify-content:center">
+      <div style="text-align:center;font-size:64px;line-height:1">${info.icone}</div>
+      <div style="text-align:center">
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin-bottom:6px">
+          Nouvelle section
+        </div>
+        <div style="font-size:24px;font-weight:800;color:var(--accent)">${entry.cat}</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">${total} item${total>1?'s':''} à vérifier</div>
+      </div>
+
+      ${info.description ? `
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:16px;font-size:13px;line-height:1.6;color:var(--text)">
+        ${info.description}
+      </div>` : ''}
+
+      ${info.conseil ? `
+      <div style="background:rgba(232,160,32,.08);border-left:3px solid var(--accent);
+        padding:12px 14px;font-size:12px;color:#a08040;border-radius:0 6px 6px 0;line-height:1.5">
+        <strong style="color:var(--accent)">💡 Conseil</strong><br>${info.conseil}
+      </div>` : ''}
+
+      ${url ? `
+      <div style="text-align:center">
+        <a href="${url}" target="_blank"
+          style="background:var(--card);border:1px solid var(--border);color:var(--muted);
+                 border-radius:6px;padding:8px 16px;font-size:12px;text-decoration:none;display:inline-block">
+          ↗ Ouvrir la page de référence
+        </a>
+      </div>` : ''}
+
+      <div style="margin-top:auto;text-align:center">
+        <button onclick="navigate(1)" style="background:var(--accent);border:none;color:#000;
+          border-radius:8px;padding:14px 40px;font-size:15px;font-weight:700;cursor:pointer;
+          font-family:var(--font)">
+          Commencer — ${entry.cat} →
+        </button>
+      </div>
+    </div>`;
+
+  // Update progress bar
+  updateProgress();
+  // Disable prev only on first nav entry
+  document.getElementById('btn-prev').disabled = (navIdx === 0);
+  document.getElementById('btn-next').textContent = 'Suivant →';
 }
 
 // ─── SHOW ITEM ───────────────────────────────────────────────────────────────
@@ -593,6 +765,20 @@ function showItem(idx) {
   if (idx >= ITEMS.length) { showRecap(); return; }
   if (idx < 0) idx = 0;
   current = idx;
+
+  // Restaurer la vue split normale
+  const left  = document.getElementById('left-panel');
+  const right = document.getElementById('right-panel');
+  if (right) right.style.display = '';
+  if (left)  left.style.flex = '';
+  // Rétablir le contenu gauche depuis le template
+  const tpl = document.getElementById('item-panel-tpl');
+  left.innerHTML = tpl.innerHTML;
+  // Rebrancher le listener toggle
+  document.getElementById('toggle-ok').addEventListener('change', function() {
+    updateToggleLabel(this.checked);
+    updateProgress();
+  });
 
   const item = ITEMS[idx];
   const s    = state[idx];
@@ -607,16 +793,50 @@ function showItem(idx) {
   document.getElementById('item-label').innerHTML =
     item.label + (item.reseau === 'Mayotte' ? '<span class="badge-mayotte">MAYOTTE</span>' : '');
 
-  const chk = document.getElementById('toggle-ok');
-  chk.checked = s.ok;
-  updateToggleLabel(s.ok);
+  // Note d'aide contextuelle
+  const noteEl = document.getElementById('item-note');
+  if (noteEl) noteEl.textContent = item.note || '';
+  if (noteEl) noteEl.style.display = item.note ? 'block' : 'none';
+
+  // Adapter le champ de saisie selon type_valeur
+  const toggleWrap = document.getElementById('toggle-wrap');
+  const numWrap    = document.getElementById('num-wrap');
+  const txtWrap    = document.getElementById('txt-wrap');
+
+  if (item.type === 'Numérique') {
+    if (toggleWrap) toggleWrap.style.display = 'none';
+    if (numWrap)    numWrap.style.display = 'block';
+    if (txtWrap)    txtWrap.style.display = 'none';
+    const numInput = document.getElementById('valeur-num');
+    if (numInput) {
+      numInput.value = s.valeur || '';
+      numInput.placeholder = item.unite ? `Valeur en ${item.unite}…` : 'Valeur…';
+    }
+    const uniteEl = document.getElementById('valeur-unite');
+    if (uniteEl) uniteEl.textContent = item.unite || '';
+  } else if (item.type === 'Texte libre') {
+    if (toggleWrap) toggleWrap.style.display = 'none';
+    if (numWrap)    numWrap.style.display = 'none';
+    if (txtWrap)    txtWrap.style.display = 'block';
+    const txtInput = document.getElementById('valeur-txt');
+    if (txtInput) txtInput.value = s.valeur || '';
+  } else {
+    // OK/NOK par défaut
+    if (toggleWrap) toggleWrap.style.display = 'flex';
+    if (numWrap)    numWrap.style.display = 'none';
+    if (txtWrap)    txtWrap.style.display = 'none';
+    const chk = document.getElementById('toggle-ok');
+    chk.checked = s.ok;
+    updateToggleLabel(s.ok);
+  }
 
   document.getElementById('remarque').value = s.remarque;
 
   // Link button
+  const resolvedUrl = resolveUrl(url);
   const lb = document.getElementById('link-btn');
-  if (url) {
-    lb.href = url;
+  if (resolvedUrl) {
+    lb.href = resolvedUrl;
     lb.classList.remove('no-link');
   } else {
     lb.href = '#';
@@ -629,11 +849,12 @@ function showItem(idx) {
   const urlLabel = document.getElementById('iframe-url-label');
   const refreshBtn = document.getElementById('btn-refresh');
 
-  if (url) {
+  const resolvedUrl2 = resolveUrl(url);
+  if (resolvedUrl2) {
     frame.style.display = 'block';
     noUrl.style.display = 'none';
-    frame.src = url;
-    urlLabel.textContent = url;
+    frame.src = resolvedUrl2;
+    urlLabel.textContent = resolvedUrl2;
     refreshBtn.style.display = 'block';
   } else {
     frame.style.display = 'none';
@@ -652,15 +873,21 @@ function showItem(idx) {
 
 function saveCurrentState() {
   if (current < ITEMS.length) {
-    state[current].ok       = document.getElementById('toggle-ok').checked;
+    const item = ITEMS[current];
+    if (item.type === 'Numérique') {
+      state[current].valeur = document.getElementById('valeur-num')?.value || '';
+      state[current].ok = state[current].valeur !== '';
+    } else if (item.type === 'Texte libre') {
+      state[current].valeur = document.getElementById('valeur-txt')?.value || '';
+      state[current].ok = state[current].valeur !== '';
+    } else {
+      state[current].ok = document.getElementById('toggle-ok').checked;
+    }
     state[current].remarque = document.getElementById('remarque').value;
   }
 }
 
-function navigate(dir) {
-  saveCurrentState();
-  showItem(current + dir);
-}
+// navigate() définie dans la section NAV ci-dessus
 
 function refreshFrame() {
   const frame = document.getElementById('verif-frame');
@@ -686,9 +913,11 @@ function updateProgress() {
   const okCount = state.reduce((n, s, i) => n + (i === current ? (liveOk ? 1 : 0) : (s.ok ? 1 : 0)), 0);
   const nokCount = ITEMS.length - okCount;
   const pct = Math.round(okCount / ITEMS.length * 100);
+  // Position dans les items (hors transitions)
+  const itemPos = NAV.slice(0, navIdx + 1).filter(e => e.type === 'item').length;
 
   document.getElementById('prog-fill').style.width = pct + '%';
-  document.getElementById('prog-label').textContent = `${current + 1} / ${ITEMS.length}  ·  ${okCount} OK`;
+  document.getElementById('prog-label').textContent = `${itemPos} / ${ITEMS.length}  ·  ${okCount} OK`;
   document.getElementById('prog-nok').textContent = nokCount > 0 ? `${nokCount} NOK` : '';
 }
 
@@ -741,21 +970,21 @@ async function submitRoutine() {
   const statut   = nokCount === 0 ? 'OK' : nokCount <= 3 ? 'Pannes mineures' : 'Pannes majeures';
 
   try {
-    for (let i = 0; i < ITEMS.length; i++) {
-      await grist.selectedTable.create({
-        fields: {
-          operateur,
-          date_routine: dateVal,
-          heure_routine: heureVal,
-          statut_global: statut,
-          categorie: ITEMS[i].cat,
-          item_label: ITEMS[i].label,
-          ok: state[i].ok,
-          remarque: state[i].remarque,
-          reseau: ITEMS[i].reseau,
-        }
-      });
-    }
+    const tbl = grist.getTable(TABLE_ROUTINE);
+    const records = ITEMS.map((item, i) => ({
+      fields: {
+        operateur,
+        date_routine: dateVal,
+        heure_routine: heureVal,
+        statut_global: statut,
+        categorie: item.cat,
+        item_label: item.label,
+        ok: state[i].ok,
+        remarque: state[i].remarque + (state[i].valeur ? ` [${state[i].valeur}${item.unite ? ' ' + item.unite : ''}]` : ''),
+        reseau: item.reseau,
+      }
+    }));
+    await tbl.create(records);
 
     showToast(`Fiche enregistrée — ${nokCount} NOK`);
     btn.textContent = '✓ Soumis';
