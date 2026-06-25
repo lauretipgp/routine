@@ -584,23 +584,44 @@ grist.ready({ requiredAccess: 'full' });
 // Charger catégories + catalogue depuis Grist, construire la séquence NAV
 async function loadCatalogue() {
   try {
-    // 1. Charger les catégories (dégradé si table absente)
+    // 1. Charger les catégories via grist.docApi.fetchTable (validé sur instance ANCT)
     try {
-      const catRecs = await grist.getTable(TABLE_CATEGORIES).fetchRecords();
-      catRecs.forEach(r => {
-        CATEGORIES[r.nom] = {
-          icone:         r.icone || '📋',
-          description:   r.description || '',
-          conseil:       r.conseil || '',
-          url_reference: r.url_reference || '',
+      const catData = await grist.docApi.fetchTable(TABLE_CATEGORIES);
+      const catLen  = catData.id ? catData.id.length : 0;
+      for (let i = 0; i < catLen; i++) {
+        const nom = catData.nom[i] || '';
+        if (nom) CATEGORIES[nom] = {
+          icone:         catData.icone[i]         || '📋',
+          description:   catData.description[i]   || '',
+          conseil:       catData.conseil[i]        || '',
+          url_reference: catData.url_reference[i]  || '',
         };
-      });
+      }
+      console.log('Catégories chargées:', Object.keys(CATEGORIES).length);
     } catch(e) {
-      console.warn('Routine_categories non trouvée — transitions désactivées');
+      console.warn('Routine_categories non trouvée — transitions désactivées:', e.message);
     }
 
-    // 2. Charger les items
-    const recs  = await grist.getTable(TABLE_CATALOGUE).fetchRecords();
+    // 2. Charger les items via grist.docApi.fetchTable (format columnar)
+    const catData2 = await grist.docApi.fetchTable(TABLE_CATALOGUE);
+    const recs = [];
+    const n = catData2.id ? catData2.id.length : 0;
+    for (let i = 0; i < n; i++) {
+      recs.push({
+        actif:            catData2.actif[i],
+        ordre:            catData2.ordre[i],
+        categorie:        catData2.categorie[i],
+        item_label:       catData2.item_label[i],
+        reseau:           catData2.reseau[i],
+        type_valeur:      catData2.type_valeur[i],
+        unite:            catData2.unite[i],
+        frequence:        catData2.frequence[i],
+        url_verification: catData2.url_verification[i],
+        note_aide:        catData2.note_aide ? catData2.note_aide[i] : '',
+      });
+    }
+    console.log('Items chargés:', recs.length);
+    // recs est maintenant un tableau d'objets — même format qu'avant
     const lundi = isLundi();
 
     ITEMS = recs
